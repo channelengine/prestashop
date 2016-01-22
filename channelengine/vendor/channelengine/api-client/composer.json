@@ -1,0 +1,21 @@
+{
+    "name": "channelengine/api-client",
+    "description": "ChannelEngine API Client for PHP",
+    "authors": [
+        {
+            "name": "Christiaan de Ridder",
+            "email": "christiaan@tritac.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=5.3.0",
+        "ext-curl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "ChannelEngineApiClient\\" : "src/ChannelEngineApiClient/"
+        }
+    },
+    "license": "MIT"
+}

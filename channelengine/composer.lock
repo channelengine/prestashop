@@ -1,0 +1,58 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
+    ],
+    "hash": "22bfe42064d066ef845d65ba58a9ba0a",
+    "content-hash": "37e634d92ddf2c628f9d962c5f848841",
+    "packages": [
+        {
+            "name": "channelengine/api-client",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/channelengine/api-client-php.git",
+                "reference": "260291e831d678bacaeb338cddeb1313e7f182c0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/channelengine/api-client-php/zipball/260291e831d678bacaeb338cddeb1313e7f182c0",
+                "reference": "260291e831d678bacaeb338cddeb1313e7f182c0",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "php": ">=5.3.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "ChannelEngineApiClient\\": "src/ChannelEngineApiClient/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Christiaan de Ridder",
+                    "email": "christiaan@tritac.com"
+                }
+            ],
+            "description": "ChannelEngine API Client for PHP",
+            "time": "2015-12-29 12:21:42"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {
+        "channelengine/api-client": 20
+    },
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": []
+}
