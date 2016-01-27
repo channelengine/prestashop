@@ -434,7 +434,7 @@ ce('track:click');
                 $attributes[] = $extra_data;
             }
             $manufacturer = new Manufacturer($product_presta['id_manufacturer'], 1);
-//            $product->setExtraData($attributes);
+            $product->setExtraData($attributes);
             $link = new Link();
             $url = $link->getProductLink($product_presta['id_product']);
             $product->setUrl($url);
