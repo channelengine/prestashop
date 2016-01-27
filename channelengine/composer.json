@@ -1,0 +1,5 @@
+{
+    "require": {
+        "channelengine/api-client": "dev-master"
+    }
+}
