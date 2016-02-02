@@ -1,2 +1,1 @@
-# prestashop
-ChannelEngine module for PrestaShop
+# ChannelEngine
