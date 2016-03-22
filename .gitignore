@@ -28,4 +28,7 @@ themes/default/cache/*.css
 robots.txt
 sitemap.xml
 *.DS_Store
-channelengine/vendor/
+vendor/
+/nbproject/private/
+project.properties
+project.xml

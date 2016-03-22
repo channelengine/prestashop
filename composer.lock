@@ -13,12 +13,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/channelengine/api-client-php.git",
-                "reference": "260291e831d678bacaeb338cddeb1313e7f182c0"
+                "reference": "269013fcad7e78a109fb769a6cbb14f324eca419"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/channelengine/api-client-php/zipball/260291e831d678bacaeb338cddeb1313e7f182c0",
-                "reference": "260291e831d678bacaeb338cddeb1313e7f182c0",
+                "url": "https://api.github.com/repos/channelengine/api-client-php/zipball/269013fcad7e78a109fb769a6cbb14f324eca419",
+                "reference": "269013fcad7e78a109fb769a6cbb14f324eca419",
                 "shasum": ""
             },
             "require": {
@@ -42,7 +42,7 @@
                 }
             ],
             "description": "ChannelEngine API Client for PHP",
-            "time": "2015-12-29 12:21:42"
+            "time": "2016-02-29 08:48:16"
         }
     ],
     "packages-dev": [],
