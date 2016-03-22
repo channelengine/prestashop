@@ -29,3 +29,6 @@ robots.txt
 sitemap.xml
 *.DS_Store
 vendor/
+/nbproject/private/
+project.properties
+project.xml

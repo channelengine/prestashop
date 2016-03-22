@@ -382,7 +382,6 @@ ce('track:click');
         } catch (Exception $e) {
             // Print the exception 
             echo ($e->getMessage());
-            die;
         }
     }
 
@@ -450,8 +449,7 @@ ce('track:click');
             }
         } catch (Exception $e) {
             // Print the exception
-            pr($e->getMessage());
-            die('sunil');
+            echo $e->getMessage();
         }
     }
 
@@ -498,7 +496,6 @@ ce('track:click');
             $orderReturn->add();
             $orderReturn->addReturnDetail($ids_order_detail_array, $quantity_array, $customizationIds, $customizationQtyInput);
             Hook::exec('actionOrderReturn', array('orderReturn' => $orderReturn));
-            die("return created");
         }
     }
 
@@ -650,7 +647,6 @@ ce('track:click');
                     $imagePath = "http://" . $imagePath;
                 }
                 $product->setImageUrl($imagePath);
-//            die("prestashop bug");
                 $productCollection[] = $product;
             }
         }
@@ -810,7 +806,6 @@ ce('track:click');
             }
             Db::getInstance()->update('orders', array('cahnnelengineOrderId' => $channelOrderId), 'id_order = ' . $order_object->id);
         }
-        die("sunil");
     }
 
     function createPrestashopCustomer($billingAddress, $email) {
