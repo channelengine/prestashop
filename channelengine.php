@@ -106,12 +106,14 @@ class Channelengine extends Module {
                 $this->registerHook('actionProductAdd') &&
                 $this->registerHook('actionProductUpdate') &&
                 $this->registerHook('actionObjectProductUpdateAfter') &&
+                $this->registerHook('actionProductAttributeUpdate') &&
                 $this->registerHook('actionOrderStatusPostUpdate') &&
                 $this->registerHook('orderConfirmation') &&
                 $this->registerHook('displayHeader') &&
                 $this->registerHook('newOrder') &&
                 $this->registerHook('actionOrderStatusPostUpdate') &&
                 $this->registerHook('displayTop');
+                
     }
 
     public function uninstall() {
@@ -282,6 +284,7 @@ class Channelengine extends Module {
         $this->context->controller->addJS($this->_path . '/views/js/front.js');
         $this->context->controller->addCSS($this->_path . '/views/css/front.css');
     }
+    
 
     public function hookDisplayHeader() {
         if (!Configuration::get('CHANNELENGINE_LIVE_MODE')) {
@@ -299,18 +302,14 @@ ce('track:click');
             return $script;
         }
     }
-
-    public function hookActionProductUpdate($params) {
-        $product = $params['product'];
-        $arrrs = $product->getFrontFeatures(1);
-        $prestaProducts = array($params['product']);
-        $this->putPrestaProductsToChannelEngine($prestaProducts, $params['id_product']);
-    }
+  
 
     public function hookActionProductAdd($params) {
+        
         $prestaProducts = array($params['product']);
         $this->putPrestaProductsToChannelEngine($prestaProducts, $params['id_product']);
     }
+   
 
     public function hookactionOrderStatusPostUpdate($params) {
         $prestaProducts = $params['cart']->getProducts();
@@ -329,6 +328,8 @@ ce('track:click');
             $this->postShipment();
         }
     }
+    
+  
 
     private function postShipment() {
         try {
@@ -384,8 +385,10 @@ ce('track:click');
             echo ($e->getMessage());
         }
     }
+  
 
-    private function postReturn($params) {
+
+    private function postReturn($params) { 
         try {
             $id_order = Tools::getValue('id_order');
             $orderToReturn = new Order($id_order);
@@ -449,7 +452,7 @@ ce('track:click');
             }
         } catch (Exception $e) {
             // Print the exception
-            echo $e->getMessage();
+            pr($e->getMessage());
         }
     }
 
@@ -469,7 +472,7 @@ ce('track:click');
             $channelengine_order_id = $return->getOrderId();
             $sql = "SELECT id_order FROM " . _DB_PREFIX_ . "orders  WHERE cahnnelengineOrderId ='" . $channelengine_order_id . "'";
             $prestashop_order_id = Db::getInstance()->getValue($sql);
-            $sql = "SELECT id_order_detail FROM " . _DB_PREFIX_ . "order_detail  WHERE id_order ='" . $prestashop_order_id . "'";
+            $sql = "SELECT id_order_detail FROM" . _DB_PREFIX_ . "order_detail  WHERE id_order ='" . $prestashop_order_id . "'";
             $ids_order_details = Db::getInstance()->executeS($sql);
             $ids_order_detail_array = array();
             foreach ($ids_order_details as $key => $ids_order_detail) {
@@ -573,6 +576,27 @@ ce('track:click');
      * @param type $prestaProducts
      * @param type $channelEngineObject
      */
+    
+    /* function for updating product attribute in channelengine /*
+     * 
+     */ 
+  public function cronProductAttributeSync() {
+            $now = time();
+            $ten_minutes = $now - (10 * 60);
+            $startDate = date('Y-m-d H:i:s', $now);
+            $endDate = date('Y-m-d H:i:s', $ten_minutes);
+            $sql = "SELECT id_product FROM " . _DB_PREFIX_ . "product WHERE (date_upd between '". $endDate . "'AND '" . $startDate . "')";
+            $updated_product_ids = Db::getInstance()->executeS($sql);
+            if (!empty($updated_product_ids)) {
+            foreach ($updated_product_ids as $updated_product_id) {
+                $prestashop_products = new Product((int) $updated_product_id['id_product']);
+                 $prestaProducts = array($prestashop_products);
+                 $this->putPrestaProductsToChannelEngine($prestaProducts, $updated_product_id['id_product']);
+            }
+        }
+    }  
+    
+    
     public function putPrestaProductsToChannelEngine($prestaProducts, $id_product = 0) {
         foreach ($prestaProducts as $product_presta) {
             $product_presta = (array) $product_presta;
@@ -831,7 +855,6 @@ ce('track:click');
                 break;
         }
     }
-
 }
 
 function pr($data) {
