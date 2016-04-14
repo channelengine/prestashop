@@ -1,5 +1,4 @@
 <?php
-
 /**
  * 2007-2015 PrestaShop
  *
@@ -24,18 +23,18 @@
  *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  *  International Registered Trademark & Property of PrestaShop SA
  */
+
 include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
 include(dirname(__FILE__) . '/channelengine.php');
 
-class channelEngineSynchronizeAttributeTask extends Channelengine {
+class ChannelEngineCallBack extends Channelengine {
 
-    public function __construct() {
-        parent::__construct();
-        $last_ten_minutes_ts = time() - (10 * 60);
-        $this->cronProductAttributeSync($last_ten_minutes_ts);
-    }
-
+	public function __construct() {
+		parent::__construct();
+		$this->handleRequest();
+	}
+        
 }
 
-new channelEngineSynchronizeAttributeTask();
+new ChannelEngineCallBack();
