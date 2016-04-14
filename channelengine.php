@@ -113,7 +113,6 @@ class Channelengine extends Module {
                 $this->registerHook('newOrder') &&
                 $this->registerHook('actionOrderStatusPostUpdate') &&
                 $this->registerHook('displayTop');
-                
     }
 
     public function uninstall() {
@@ -284,7 +283,6 @@ class Channelengine extends Module {
         $this->context->controller->addJS($this->_path . '/views/js/front.js');
         $this->context->controller->addCSS($this->_path . '/views/css/front.css');
     }
-    
 
     public function hookDisplayHeader() {
         if (!Configuration::get('CHANNELENGINE_LIVE_MODE')) {
@@ -302,14 +300,12 @@ ce('track:click');
             return $script;
         }
     }
-  
 
     public function hookActionProductAdd($params) {
-        
+
         $prestaProducts = array($params['product']);
         $this->putPrestaProductsToChannelEngine($prestaProducts, $params['id_product']);
     }
-   
 
     public function hookactionOrderStatusPostUpdate($params) {
         $prestaProducts = $params['cart']->getProducts();
@@ -328,8 +324,6 @@ ce('track:click');
             $this->postShipment();
         }
     }
-    
-  
 
     private function postShipment() {
         try {
@@ -385,10 +379,8 @@ ce('track:click');
             echo ($e->getMessage());
         }
     }
-  
 
-
-    private function postReturn($params) { 
+    private function postReturn($params) {
         try {
             $id_order = Tools::getValue('id_order');
             $orderToReturn = new Order($id_order);
@@ -576,27 +568,23 @@ ce('track:click');
      * @param type $prestaProducts
      * @param type $channelEngineObject
      */
-    
     /* function for updating product attribute in channelengine /*
      * 
-     */ 
-  public function cronProductAttributeSync() {
-            $now = time();
-            $ten_minutes = $now - (10 * 60);
-            $startDate = date('Y-m-d H:i:s', $now);
-            $endDate = date('Y-m-d H:i:s', $ten_minutes);
-            $sql = "SELECT id_product FROM " . _DB_PREFIX_ . "product WHERE (date_upd between '". $endDate . "'AND '" . $startDate . "')";
-            $updated_product_ids = Db::getInstance()->executeS($sql);
-            if (!empty($updated_product_ids)) {
+     */
+    public function cronProductAttributeSync($lastUpdatedTimestamp) {
+        $startDate = date('Y-m-d H:i:s', time());
+        $endDate = date('Y-m-d H:i:s', $lastUpdatedTimestamp);
+        $sql = "SELECT id_product FROM " . _DB_PREFIX_ . "product WHERE (date_upd between '" . $endDate . "'AND '" . $startDate . "')";
+        $updated_product_ids = Db::getInstance()->executeS($sql);
+        if (!empty($updated_product_ids)) {
             foreach ($updated_product_ids as $updated_product_id) {
                 $prestashop_products = new Product((int) $updated_product_id['id_product']);
-                 $prestaProducts = array($prestashop_products);
-                 $this->putPrestaProductsToChannelEngine($prestaProducts, $updated_product_id['id_product']);
+                $prestaProducts = array($prestashop_products);
+                $this->putPrestaProductsToChannelEngine($prestaProducts, $updated_product_id['id_product']);
             }
         }
-    }  
-    
-    
+    }
+
     public function putPrestaProductsToChannelEngine($prestaProducts, $id_product = 0) {
         foreach ($prestaProducts as $product_presta) {
             $product_presta = (array) $product_presta;
@@ -748,7 +736,7 @@ ce('track:click');
             $CarrierObject = new Carrier();
             $CarrierObject->delay[1] = "2-4";
             $CarrierObject->active = 1;
-            $CarrierObject->name = "ChannelEngine Order2";
+            $CarrierObject->name = "ChannelEngine Order";
             $CarrierObject->add();
             $id_carrier = $CarrierObject->id;
             $currency_object = new Currency();
@@ -756,6 +744,7 @@ ce('track:click');
             $id_currency = $default_currency_object->id;
             $id_address = $AddressObject->id;
 
+            // Create Cart Object
             $cart = new Cart();
             $cart->id_customer = (int) $id_customer;
             $cart->id_address_delivery = $id_address;
@@ -774,7 +763,7 @@ ce('track:click');
                         $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
                         $cart->updateQty($quantity, $getMerchantProductNo[0], $getMerchantProductNo[1]);
                     } else {
-//                     $cart->updateQty($quantity, $item->getmerchantProductNo());
+                        $cart->updateQty($quantity, $item->getmerchantProductNo());
                     }
                 }
             }
@@ -832,6 +821,12 @@ ce('track:click');
         }
     }
 
+    /**
+     * Create a prestashop Customer
+     * @param type $billingAddress
+     * @param type $email
+     * @return type
+     */
     function createPrestashopCustomer($billingAddress, $email) {
         $customer_object = new Customer();
         $customer_object->firstname = $billingAddress->getfirstName();
@@ -842,23 +837,22 @@ ce('track:click');
         return $customer_object->id;
     }
 
+    /*
+     * Function to handle request
+     */
     function handlerequest() {
-
         $type = isset($_GET['type']) ? $_GET['type'] : '';
         switch ($type) {
             case 'orders':
                 $this->cronOrdersSync();
-
                 break;
             case 'returns':
                 $this->cronReturnSync();
                 break;
+            case 'product':
+                $time_stamp = $_GET['updatedSince'];
+                $this->cronProductAttributeSync($time_stamp);
+                break;
         }
     }
-}
-
-function pr($data) {
-    echo "<pre>";
-    print_r($data);
-    echo "</pre>";
 }
