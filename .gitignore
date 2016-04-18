@@ -32,3 +32,5 @@ vendor/
 /nbproject/private/
 project.properties
 project.xml
+
+export/

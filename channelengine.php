@@ -80,8 +80,7 @@ class Channelengine extends Module {
         parent::__construct();
 
         $this->displayName = $this->l('ChannelEngine');
-        $this->description = $this->l('ChannelEngine extension for Prestashop
-');
+        $this->description = $this->l('ChannelEngine extension for Prestashop');
 
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall the module?');
 
