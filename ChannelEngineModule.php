@@ -25,8 +25,9 @@
  *  International Registered Trademark & Property of PrestaShop SA
  */
 if (!defined('_PS_VERSION_')) {
-//    exit;
+    exit;
 }
+
 // Autoload files using Composer autoload
 require_once 'vendor/autoload.php';
 
@@ -93,10 +94,19 @@ class Channelengine extends Module {
      */
     public function install() {
         Configuration::updateValue('CHANNELENGINE_LIVE_MODE', false);
-        $sql = "ALTER TABLE `" . _DB_PREFIX_ . "order_detail` ADD `id_channelengine_product` int(10) NOT NULL,ADD `id_channelengine_shippment` int(10) NOT NULL,ADD `id_channelengine_return` int(10) NOT NULL";
+
+        $sql  = "ALTER TABLE `" . _DB_PREFIX_ . "order_detail` ";
+        $sql .= "ADD `id_channelengine_product` int(10) NOT NULL, ";
+        $sql .= "ADD `id_channelengine_shipment` int(10) NOT NULL, ";
+        $sql .= "ADD `id_channelengine_return` int(10) NOT NULL";
         Db::getInstance()->Execute($sql);
-        $mysql = "ALTER TABLE `" . _DB_PREFIX_ . "orders`ADD `cahnnelengineOrderId` int(10) NOT NULL,ADD `channelengineShippmentId` int(10) NOT NULL,ADD `channelengineReturnId` int(10) NOT NULL";
-        Db::getInstance()->Execute($mysql);
+
+        $sql  = "ALTER TABLE `" . _DB_PREFIX_ . "orders` ";
+        $sql .= "ADD `id_channelengine_order` int(10) NOT NULL, ";
+        $sql .= "ADD `id_channelengine_shipment` int(10) NOT NULL, ";
+        $sql .= "ADD `id_channelengine_return` int(10) NOT NULL";
+        Db::getInstance()->Execute($sql);
+
         return parent::install() &&
                 $this->registerHook('header') &&
                 $this->registerHook('backOfficeHeader') &&
@@ -120,10 +130,17 @@ class Channelengine extends Module {
         Configuration::deleteByName('CHANNELENGINE_ACCOUNT_API_SECRET');
         Configuration::deleteByName('CHANNELENGINE_ACCOUNT_NAME');
         Configuration::deleteByName('CHANNELENGINE_EXPECTED_SHIPPING_PERIOD');
-        $sql = "ALTER TABLE `" . _DB_PREFIX_ . "order_detail` DROP `id_channelengine_product` int(10) NOT NULL,DROP `id_channelengine_shippment` int(10) NOT NULL,DROP `id_channelengine_return` int(10) NOT NULL";
+
+        $sql  = "ALTER TABLE `" . _DB_PREFIX_ . "order_detail` ";
+        $sql .= "DROP `id_channelengine_product`, ";
+        $sql .= "DROP `id_channelengine_return`";
+
         Db::getInstance()->Execute($sql);
-        $mysql = "ALTER TABLE `" . _DB_PREFIX_ . "orders`DROP `cahnnelengineOrderId` int(10) NOT NULL,DROP `channelengineShippmentId` int(10) NOT NULL,DROP `channelengineReturnId` int(10) NOT NULL";
-        Db::getInstance()->Execute($mysql);
+
+        $sql  = "ALTER TABLE `" . _DB_PREFIX_ . "orders` ";
+
+        Db::getInstance()->Execute($sql);
+
         return parent::uninstall();
     }
 
@@ -330,7 +347,7 @@ ce('track:click');
             // by posting shipments.
             // Note: Use data from an existing order here
             $id_order = Tools::getValue('id_order');
-            $sql = 'SELECT cahnnelengineOrderId FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
+            $sql = 'SELECT id_channelengine_order FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
             $channelengine_order_id = Db::getInstance()->getValue($sql);
             if ($channelengine_order_id != 0) {
                 $orderToShip = new Order($id_order);
@@ -359,15 +376,15 @@ ce('track:click');
                 }
 
 
-                $query = 'SELECT channelengineShippmentId FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
+                $query = 'SELECT id_channelengine_shipment FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
                 $shipment_id = Db::getInstance()->getValue($query);
                 if ($shipment_id == 0) {
                     $shipment->setLines($shipments);
                     $result = $this->client->postShipment($shipment);
-                    Db::getInstance()->update('orders', array('channelengineShippmentId' => $result->getId()), 'id_order = ' . $id_order);
+                    Db::getInstance()->update('orders', array('id_channelengine_shipment' => $result->getId()), 'id_order = ' . $id_order);
                     $result_lines = $result->getLines();
                     foreach ($result_lines as $result_line) {
-                        $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_shippment='" . $result_line->getId() . "'"
+                        $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_shipment='" . $result_line->getId() . "'"
                                 . "WHERE id_channelengine_product = ' " . $result_line->getOrderLineId() . "' ";
                         Db::getInstance()->Execute($query);
                     }
@@ -390,7 +407,7 @@ ce('track:click');
             // The shipment that needs to be registered as being returned by the customer.
             // Note: Use an existing shipment with lines here.
 
-            $sql = 'SELECT channelengineShippmentId FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
+            $sql = 'SELECT id_channelengine_shipment FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
             $channelengine_Shippment_id = Db::getInstance()->getValue($sql);
             if ($channelengine_Shippment_id != 0) {
                 $shipment = new CEShipment();
@@ -414,7 +431,7 @@ ce('track:click');
                 foreach ($products as $product) {
                     $sql = "SELECT id_channelengine_product FROM " . _DB_PREFIX_ . "order_detail  WHERE product_id ='" . $product['product_id'] . "'AND product_attribute_id ='" . $product['product_attribute_id'] . "'AND id_order ='" . $id_order . "'";
                     $product_id = Db::getInstance()->getValue($sql);
-                    $sql = "SELECT id_channelengine_shippment FROM " . _DB_PREFIX_ . "order_detail  WHERE product_id ='" . $product['product_id'] . "'AND product_attribute_id ='" . $product['product_attribute_id'] . "'AND id_order ='" . $id_order . "'";
+                    $sql = "SELECT id_channelengine_shipment FROM " . _DB_PREFIX_ . "order_detail  WHERE product_id ='" . $product['product_id'] . "'AND product_attribute_id ='" . $product['product_attribute_id'] . "'AND id_order ='" . $id_order . "'";
                     $shipment_line_id = Db::getInstance()->getValue($sql);
                     $returnLine = new CEReturnLine();
                     $returnLine->setQuantity($product['product_quantity']);
@@ -427,16 +444,16 @@ ce('track:click');
                     // Add the return line and send it to ChannelEngine
                     $returns->append($returnLine);
                 }
-                $query = 'SELECT channelengineReturnId FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
+                $query = 'SELECT id_channelengine_return FROM ' . _DB_PREFIX_ . 'orders WHERE id_order =' . $id_order;
                 $return_id = Db::getInstance()->getValue($query);
                 if ($return_id == 0) {
                     $return->setLines($returns);
                     $result = $this->client->postReturn($return);
-                    Db::getInstance()->update('orders', array('channelengineReturnId' => $result->getId()), 'id_order = ' . $id_order);
+                    Db::getInstance()->update('orders', array('id_channelengine_return' => $result->getId()), 'id_order = ' . $id_order);
                     $result_lines = $result->getLines();
                     foreach ($result_lines as $result_line) {
                         $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_return='" . $result_line->getId() . "'"
-                                . "WHERE id_channelengine_shippment = ' " . $result_line->getShipmentLineId() . "' ";
+                                . "WHERE id_channelengine_shipment = ' " . $result_line->getShipmentLineId() . "' ";
                         Db::getInstance()->Execute($query);
                     }
                 }
@@ -461,10 +478,13 @@ ce('track:click');
         foreach ($returns as $return) {
             $return_lines = $return->getLines();
             $channelengine_order_id = $return->getOrderId();
-            $sql = "SELECT id_order FROM " . _DB_PREFIX_ . "orders  WHERE cahnnelengineOrderId ='" . $channelengine_order_id . "'";
+
+            $sql = "SELECT id_order FROM " . _DB_PREFIX_ . "orders  WHERE id_channelengine_order ='" . $channelengine_order_id . "'";
             $prestashop_order_id = Db::getInstance()->getValue($sql);
+
             $sql = "SELECT id_order_detail FROM" . _DB_PREFIX_ . "order_detail  WHERE id_order ='" . $prestashop_order_id . "'";
             $ids_order_details = Db::getInstance()->executeS($sql);
+
             $ids_order_detail_array = array();
             foreach ($ids_order_details as $key => $ids_order_detail) {
                 $ids_order_detail_array[$ids_order_detail['id_order_detail']] = $ids_order_detail['id_order_detail'];
@@ -816,7 +836,7 @@ ce('track:click');
                         . "WHERE product_id ='" . $getMerchantProductNo[0] . "' AND product_attribute_id = ' " . $getMerchantProductNo[1] . "'AND id_order = ' " . $order_object->id . "' ";
                 Db::getInstance()->Execute($query);
             }
-            Db::getInstance()->update('orders', array('cahnnelengineOrderId' => $channelOrderId), 'id_order = ' . $order_object->id);
+            Db::getInstance()->update('orders', array('id_channelengine_order' => $channelOrderId), 'id_order = ' . $order_object->id);
         }
     }
 
