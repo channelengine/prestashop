@@ -133,11 +133,15 @@ class Channelengine extends Module {
 
         $sql  = "ALTER TABLE `" . _DB_PREFIX_ . "order_detail` ";
         $sql .= "DROP `id_channelengine_product`, ";
+        $sql .= "DROP `id_channelengine_shipment`, ";
         $sql .= "DROP `id_channelengine_return`";
 
         Db::getInstance()->Execute($sql);
 
         $sql  = "ALTER TABLE `" . _DB_PREFIX_ . "orders` ";
+        $sql .= "DROP `id_channelengine_order`, ";
+        $sql .= "DROP `id_channelengine_shipment`, ";
+        $sql .= "DROP `id_channelengine_return`";
 
         Db::getInstance()->Execute($sql);
 
