@@ -591,10 +591,7 @@ ce('track:click');
      * @param type $prestaProducts
      * @param type $channelEngineObject
      */
-    /* function for updating product attribute in channelengine /*
-     * 
-     */
-    public function cronProductAttributeSync($lastUpdatedTimestamp) {
+    public function cronProductSync($lastUpdatedTimestamp) {
         $startDate = date('Y-m-d H:i:s', time());
         $endDate = date('Y-m-d H:i:s', $lastUpdatedTimestamp);
         $sql = "SELECT id_product FROM " . _DB_PREFIX_ . "product WHERE (date_upd between '" . $endDate . "'AND '" . $startDate . "')";
@@ -863,7 +860,14 @@ ce('track:click');
     /*
      * Function to handle request
      */
-    function handlerequest() {
+    function handleRequest() {
+        try { 
+            $this->client->validateCallbackHash();
+        } catch(Exception $e) {
+            http_response_code(403);
+            exit($e->getMessage());
+        }
+
         $type = isset($_GET['type']) ? $_GET['type'] : '';
         switch ($type) {
             case 'orders':
@@ -872,9 +876,9 @@ ce('track:click');
             case 'returns':
                 $this->cronReturnSync();
                 break;
-            case 'product':
-                $time_stamp = $_GET['updatedSince'];
-                $this->cronProductAttributeSync($time_stamp);
+            case 'products':
+                $timestamp = $_GET['updatedSince'];
+                $this->cronProductSync($timestamp);
                 break;
         }
     }
