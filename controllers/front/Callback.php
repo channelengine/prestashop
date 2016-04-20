@@ -3,9 +3,13 @@
  
 class ChannelEnginecallbackModuleFrontController extends ModuleFrontController
 {
-	public function init() {
+	public function init()
+	{
+		parent::init();
+		$this->display_column_left = false; 
+		$this->display_column_right = false; 
+		$this->display_header = false;
+		$this->display_footer = false;
 		$this->module->handleRequest();
-		die();
 	}
-
 }
