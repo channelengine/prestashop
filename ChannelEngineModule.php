@@ -67,11 +67,11 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '1.1.0';
+        $this->version = '1.2.0';
         $this->author = 'ChannelEngine (M. Gautam, C. de Ridder)';
         $this->need_instance = 1;
 
-        $this->client = new CEApiClient(Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'), Configuration::get('CHANNELENGINE_ACCOUNT_API_SECRET'), Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null), CEApiClient::ENV_ACCEPTATION);
+        $this->client = new CEApiClient(Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'), Configuration::get('CHANNELENGINE_ACCOUNT_API_SECRET'), Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null));
         /**
          * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
          */
@@ -83,7 +83,7 @@ class Channelengine extends Module {
         $this->displayName = $this->l('ChannelEngine');
         $this->description = $this->l('ChannelEngine extension for Prestashop');
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall the module?');
-        $this->ps_versions_compliancy = array('min' => '1.4', 'max' => '1.6');
+        $this->ps_versions_compliancy = array('min' => '1.4', 'max' => '1.7');
     }
 
     /**
@@ -597,38 +597,40 @@ ce('track:click');
         } else {
             $condition = "";
         }
-        $sql = 'SELECT p.*, product_shop.*, pl.*, m.`name` AS manufacturer_name, i.`id_image`, s.quantity ,'
+        $sql = 'SELECT p.*, product_shop.*, pl.*, m.name AS manufacturer_name, i.id_image, s.quantity ,'
                 . '( '
-                . '    SELECT cp.`id_category` '
+                . '    SELECT cp.id_category '
                 . '    FROM `' . _DB_PREFIX_ . 'category_product` cp '
-                . '    INNER JOIN `' . _DB_PREFIX_ . 'category` c ON (cp.`id_category` = c.`id_category`) '
+                . '    INNER JOIN `' . _DB_PREFIX_ . 'category` c ON (cp.id_category = c.id_category) '
                 . Shop::addSqlAssociation('category', 'c') . ' '
-                . '    WHERE cp.`id_product` = p.`id_product` '
-                . '    ORDER BY c.`level_depth` DESC '
+                . '    WHERE cp.id_product = p.id_product '
+                . '    ORDER BY c.level_depth DESC '
                 . '    LIMIT 1 '
-                . ') id_category '
+                . ') id_category, '
+                . '( '
+                . '    SELECT t.rate '
+                . '    FROM `' . _DB_PREFIX_ . 'tax` t '
+                . '    INNER JOIN `' . _DB_PREFIX_ . 'tax_rule` tr ON (tr.id_tax = t.id_tax) '
+                . '    INNER JOIN `' . _DB_PREFIX_ . 'country` c ON (tr.id_country = c.id_country) '
+                . Shop::addSqlAssociation('country', 'c') . ' '
+                . '    WHERE c.iso_code = \'NL\''
+                . '    AND tr.id_tax_rules_group = p.id_tax_rules_group'
+                . '    ORDER BY t.rate DESC '
+                . '    LIMIT 1 '
+                . ') rate '
                 . 'FROM `' . _DB_PREFIX_ . 'product` p '
                 . Shop::addSqlAssociation('product', 'p') . ' '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.`id_product` = pl.`id_product` AND pl.`id_shop` = ' . $id_shop . ') '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.`id_product` = p.`id_product`   '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.`id_manufacturer` = p.`id_manufacturer`) '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.`id_shop` = ' . $id_shop . ' AND i.`cover` = 1 AND i.`id_product` = p.`id_product`) '
-                . 'WHERE ' . $condition . ' pl.`id_lang` = ' . $id_lang . ' '
-                . 'AND product_shop.`visibility` IN ("both", "catalog") '
-                . 'AND product_shop.`active` = 1 '
-                . 'AND p.`date_upd` >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
-
+                . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_shop = ' . $id_shop . ') '
+                . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
+                . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) '
+                . 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) '
+                . 'WHERE ' . $condition . ' pl.id_lang = ' . $id_lang . ' '
+                . 'AND product_shop.visibility IN ("both", "catalog") '
+                . 'AND product_shop.active = 1 '
+                . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
 
         $rq = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
-        $products = array();
-
-        if (!$rq)
-            return $products;
-
-        foreach ($rq as &$row) {
-            $row = Product::getTaxesInformations($row);
-            $row['rate'] = 0;
-        }
+        if (!$rq) return array();
 
         return ($rq);
     }
@@ -666,6 +668,7 @@ ce('track:click');
                 LEFT JOIN `' . _DB_PREFIX_ . 'attribute_group_lang` agl ON (ag.`id_attribute_group` = agl.`id_attribute_group` AND agl.`id_lang` = ' . (int) $id_lang . ')
                 ' . $condition . ' GROUP BY pa.`id_product_attribute`  
                 ORDER BY pa.`id_product_attribute`';
+
         $res = Db::getInstance()->executeS($sql);
         //Get quantity of each variations
         $attributes = array();
@@ -727,21 +730,22 @@ ce('track:click');
         $this->putPrestaProductsToChannelEngine($products);
     }
 
-    public function putPrestaProductsToChannelEngine($prestaProducts, $id_product = FALSE) {
+    public function putPrestaProductsToChannelEngine($prestaProducts, $productId = FALSE) {
         $categories = $this->getCategories();
-        $combinations = $this->getAttributeCombinations($id_product);
-        $extradata = $this->getExtraData($id_product);
-        $id_lang = Context::getContext()->language->id;
+        $combinations = $this->getAttributeCombinations($productId);
+        $extradata = $this->getExtraData($productId);
         $products = [];
         foreach ($prestaProducts as $prestaProduct) {
+
             $id = $prestaProduct['id_product'];
+
             if (!isset($combinations[$id])) {
-                $product = $this->createProductObject($prestaProduct['id_product'], $prestaProduct, 0, $categories, $extradata);
+                $product = $this->createProductObject($prestaProduct, null, $categories, $extradata);
                 $products[] = $product;
             } else {
                 $variants = $combinations[$id];
                 foreach ($variants as $variant) {
-                    $product = $this->createProductObject($prestaProduct['id_product'], $prestaProduct, $variant, $categories, $extradata);
+                    $product = $this->createProductObject($prestaProduct, $variant, $categories, $extradata);
                     $products[] = $product;
                 }
             }
@@ -753,7 +757,8 @@ ce('track:click');
         }
     }
 
-    function createProductObject($id, $prestaProduct, $variant, $categories, $extradata) {
+    function createProductObject($prestaProduct, $variant, $categories, $extradata) {
+        $id = $prestaProduct['id_product'];
         $product = new CEProduct();
         $product->setName($prestaProduct['name']);
         $product->setDescription(strip_tags($prestaProduct['description']));
@@ -768,16 +773,46 @@ ce('track:click');
         } else {
             $product->setEan("00000000");
         }
+
+        $attributes = array();
+        if(isset($extradata[$id])){
+            foreach ($extradata[$id] as $single) {
+                $ed = array();
+                $ed['Key'] = $single['name'];
+                $ed['Value'] = $single['value'];
+                $ed['IsPublic'] = true;
+                $attributes[] = $ed;
+            }
+        }
+        
+
         if (!$variant) {
             $merchantProductNo = $id;
             $product->setStock($prestaProduct['quantity']);
         } else {
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
+            $product->setGroupNo($id);
             $product->setStock($variant['quantity']);
+
+            $variantAttrName = $variant['group_name'];
+            $variantAttrNameLower = strtolower($variantAttrName);
+            $variantAttrValue = $variant['attribute_name'];
+
+
+            if($variantAttrNameLower == 'size' || $variantAttrNameLower == 'maat') {
+                $product->setSize($variantAttrValue);
+            } elseif($variantAttrNameLower == 'color' || $variantAttrNameLower == 'colour' || $variantAttrNameLower == 'kleur') {
+                $product->setColor($variantAttrValue);
+            } else {
+                $ed['Key'] = $variantAttrName;
+                $ed['Value'] = $variantAttrValue;
+                $ed['IsPublic'] = true;
+                $attributes[] = $ed;
+            }
         }
+        $product->setExtraData($attributes);
+
         $product->setMerchantProductNo($merchantProductNo);
-        $product->setPrice($prestaProduct['price']);
-        $product->setListPrice($prestaProduct['price']);
 
         if (isset($prestaProduct['rate'])) {
             $product->setVatRate($prestaProduct['rate']);
@@ -785,27 +820,24 @@ ce('track:click');
             $taxObject = new Tax($prestaProduct['id_tax_rules_group'], 1);
             $product->setVatRate($taxObject->rate);
         }
+
+        $price = $prestaProduct['price'] * (1.0 + ($product->getVatRate() / 100.0));
+        $product->setPrice($price);
+        $product->setListPrice($price);
+
         $product->setStock($variant['quantity']);
+
         if (isset($prestaProduct['id_category'])) {
             $product->setCategoryTrail($categories[$prestaProduct['id_category']]);
         } else {
             $category_path = $this->getProductCategories($id);
             $product->setCategoryTrail($category_path);
         }
+
         $product->setShippingCost($prestaProduct['additional_shipping_cost']);
         $link = new Link();
         $product->setUrl($link->getProductLink($id));
-        $attributes = array();
-        if(isset($extradata[$id])){
-            foreach ($extradata[$id] as $single) {
-                $extra_data = array();
-                $extra_data['Key'] = $single['name'];
-                $extra_data['Value'] = $single['value'];
-                $extra_data['IsPublic'] = true;
-                $attributes[] = $extra_data;
-            }
-        }
-        $product->setExtraData($attributes);
+
         $base_path = _PS_BASE_URL_ . __PS_BASE_URI__;
         $base_path = preg_replace('#^https?://#', '', $base_path);
         $imagePath = $prestaProduct['id_image'] == "" ? $base_path . 'img/p/en-default-home_default.jpg' : $link->getImageLink($prestaProduct['link_rewrite'], $prestaProduct['id_image'], '');
@@ -813,29 +845,27 @@ ce('track:click');
         return $product;
     }
 
-    function getExtraData($id_product = FALSE) {
+    function getExtraData($productId = FALSE) {
+
         $ctx = Context::getContext();
         $id_lang = (int) $ctx->language->id;
         $id_shop = (int) $ctx->shop->id;
-        if (!Combination::isFeatureActive()) {
-            return array();
-        }
-        if ($id_product) {
-            $condition = 'fp.id_product = ' . $id_product;
-        } else {
-            $condition = 'fp.id_product IS NOT NULL';
-        }
-        $sql = 'select fl.name , fp.id_product, fvl.value from '
-                . 'ps_feature_value_lang fvl LEFT JOIN ps_feature_product '
-                . 'fp ON fp.id_feature_value = fvl.id_feature_value LEFT JOIN'
-                . ' ps_feature_lang fl ON fl.id_feature = fp.id_feature where '
-                . $condition;
+        $features = array();
+
+        if (!Combination::isFeatureActive()) return $features;
+
+        $sql = 'SELECT fl.name, fp.id_product, fvl.value '
+             . 'FROM `' . _DB_PREFIX_ . 'feature_value_lang` fvl '
+             . 'INNER JOIN `' . _DB_PREFIX_ . 'feature_product` fp ON fp.id_feature_value = fvl.id_feature_value '
+             . 'INNER JOIN `' . _DB_PREFIX_ . 'feature_lang` fl ON fl.id_feature = fp.id_feature AND fl.id_lang = ' . $id_lang . ' '
+             . 'INNER JOIN `' . _DB_PREFIX_ . 'feature` f ON fl.id_feature = f.id_feature '
+             . Shop::addSqlAssociation('feature', 'f') . ' '
+             . (($productId) ?  'WHERE fp.id_product = ' . (int)$productId . ' AND ': 'WHERE ')
+             . 'fvl.id_lang = ' . $id_lang;
         $res = Db::getInstance()->executeS($sql);
 
         //Get quantity of each variations
-        $features = array();
-        if (!$res)
-            return $features;
+        if (!$res) return $features;
 
         foreach ($res as &$row) {
             $id = $row['id_product'];
