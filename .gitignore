@@ -34,3 +34,4 @@ project.properties
 project.xml
 
 export/
+*.lock
