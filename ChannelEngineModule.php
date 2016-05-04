@@ -84,6 +84,7 @@ class Channelengine extends Module {
         $this->description = $this->l('ChannelEngine extension for Prestashop');
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall the module?');
         $this->ps_versions_compliancy = array('min' => '1.4', 'max' => '1.7');
+
     }
 
     /**
@@ -1071,6 +1072,8 @@ ce('track:click');
                 $timestamp = $_GET['updatedSince'];
                 $this->cronProductSync($timestamp);
                 break;
+            default:
+                die('Unknown callback type');
         }
     }
 
