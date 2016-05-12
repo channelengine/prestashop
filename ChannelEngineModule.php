@@ -321,13 +321,13 @@ ce('track:click');
     }
 
     public function hookActionProductAdd($params) {
-        $products = $this->getProducts(NULL, $params['id_product']);
-        $this->putPrestaProductsToChannelEngine($products, $params['id_product']);
+        //$products = $this->getProducts(NULL, $params['id_product']);
+        //$this->putPrestaProductsToChannelEngine($products, $params['id_product']);
     }
 
     public function hookActionProductUpdate($params) {
-        $products = $this->getProducts(NULL, $params['id_product']);
-        $this->putPrestaProductsToChannelEngine($products, $params['id_product']);
+        //$products = $this->getProducts(NULL, $params['id_product']);
+        //$this->putPrestaProductsToChannelEngine($products, $params['id_product']);
     }
 
     public function hookactionOrderStatusPostUpdate($params) {
@@ -1054,7 +1054,7 @@ ce('track:click');
 
     function handleRequest() {
         try {
-            //$this->client->validateCallbackHash();
+            $this->client->validateCallbackHash();
         } catch (Exception $e) {
             http_response_code(403);
             exit($e->getMessage());
