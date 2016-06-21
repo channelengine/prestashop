@@ -107,20 +107,20 @@ class Channelengine extends Module {
         Db::getInstance()->Execute($sql);
 
         return parent::install() &&
-                $this->registerHook('header') &&
-                $this->registerHook('backOfficeHeader') &&
-                $this->registerHook('actionOrderStatusPostUpdate') &&
-                $this->registerHook('actionOrderStatusUpdate') &&
-                $this->registerHook('actionProductAdd') &&
-                $this->registerHook('actionProductUpdate') &&
-                $this->registerHook('actionObjectProductUpdateAfter') &&
-                $this->registerHook('actionProductAttributeUpdate') &&
-                $this->registerHook('actionOrderStatusPostUpdate') &&
-                $this->registerHook('orderConfirmation') &&
-                $this->registerHook('displayHeader') &&
-                $this->registerHook('newOrder') &&
-                $this->registerHook('actionOrderStatusPostUpdate') &&
-                $this->registerHook('displayTop');
+        $this->registerHook('header') &&
+        $this->registerHook('backOfficeHeader') &&
+        $this->registerHook('actionOrderStatusPostUpdate') &&
+        $this->registerHook('actionOrderStatusUpdate') &&
+        $this->registerHook('actionProductAdd') &&
+        $this->registerHook('actionProductUpdate') &&
+        $this->registerHook('actionObjectProductUpdateAfter') &&
+        $this->registerHook('actionProductAttributeUpdate') &&
+        $this->registerHook('actionOrderStatusPostUpdate') &&
+        $this->registerHook('orderConfirmation') &&
+        $this->registerHook('displayHeader') &&
+        $this->registerHook('newOrder') &&
+        $this->registerHook('actionOrderStatusPostUpdate') &&
+        $this->registerHook('displayTop');
     }
 
     public function uninstall() {
@@ -180,7 +180,7 @@ class Channelengine extends Module {
         $helper->identifier = $this->identifier;
         $helper->submit_action = 'submitChannelengineModule';
         $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-                . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         $helper->tpl_vars = array(
@@ -225,32 +225,32 @@ class Channelengine extends Module {
                     array(
                         'col' => 6,
                         'type' => 'text',
-//                        'prefix' => '<i class="icon icon-envelope"></i>',
-//                        'desc' => $this->l('Enter a valid email address'),
+                        //                        'prefix' => '<i class="icon icon-envelope"></i>',
+                        //                        'desc' => $this->l('Enter a valid email address'),
                         'name' => 'CHANNELENGINE_ACCOUNT_API_KEY',
                         'label' => $this->l('Api Key'),
                     ),
                     array(
                         'col' => 6,
                         'type' => 'text',
-//                        'prefix' => '<i class="icon icon-envelope"></i>',
-//                        'desc' => $this->l('Enter a valid email address'),
+                        //                        'prefix' => '<i class="icon icon-envelope"></i>',
+                        //                        'desc' => $this->l('Enter a valid email address'),
                         'name' => 'CHANNELENGINE_ACCOUNT_API_SECRET',
                         'label' => $this->l('Api Secret'),
                     ),
                     array(
                         'col' => 6,
                         'type' => 'text',
-//                        'prefix' => '<i class="icon icon-envelope"></i>',
-//                        'desc' => $this->l('Enter a valid email address'),
+                        //                        'prefix' => '<i class="icon icon-envelope"></i>',
+                        //                        'desc' => $this->l('Enter a valid email address'),
                         'name' => 'CHANNELENGINE_ACCOUNT_NAME',
                         'label' => $this->l('Account Name'),
                     ),
                     array(
                         'col' => 3,
                         'type' => 'text',
-//                        'prefix' => '<i class="icon icon-envelope"></i>',
-//                        'desc' => $this->l('Enter a valid email address'),
+                        //                        'prefix' => '<i class="icon icon-envelope"></i>',
+                        //                        'desc' => $this->l('Enter a valid email address'),
                         'name' => 'CHANNELENGINE_EXPECTED_SHIPPING_PERIOD',
                         'label' => $this->l('Expected Shipping Period for back orders'),
                     ),
@@ -378,7 +378,7 @@ ce('track:click');
                     $shipmentLine->setOrderLineId($product_id);
                     $shipmentLine->setQuantity($shippedQty);
                     $shipmentLine->setStatus(1);
-//                $shipmentLine->setShipmentId($orderToShip->getIdOrderCarrier());
+                    //                $shipmentLine->setShipmentId($orderToShip->getIdOrderCarrier());
                     $shipments->append($shipmentLine);
                 }
 
@@ -392,7 +392,7 @@ ce('track:click');
                     $result_lines = $result->getLines();
                     foreach ($result_lines as $result_line) {
                         $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_shipment='" . $result_line->getId() . "'"
-                                . "WHERE id_channelengine_product = ' " . $result_line->getOrderLineId() . "' ";
+                        . "WHERE id_channelengine_product = ' " . $result_line->getOrderLineId() . "' ";
                         Db::getInstance()->Execute($query);
                     }
                 }
@@ -460,7 +460,7 @@ ce('track:click');
                     $result_lines = $result->getLines();
                     foreach ($result_lines as $result_line) {
                         $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_return='" . $result_line->getId() . "'"
-                                . "WHERE id_channelengine_shipment = ' " . $result_line->getShipmentLineId() . "' ";
+                        . "WHERE id_channelengine_shipment = ' " . $result_line->getShipmentLineId() . "' ";
                         Db::getInstance()->Execute($query);
                     }
                 }
@@ -508,10 +508,10 @@ ce('track:click');
                 $orderReturn->question = htmlspecialchars(Tools::getValue('returnText'));
                 if (empty($orderReturn->question)) {
                     http_build_query(array(
-                        'ids_order_detail' => $ids_order_detail_array,
-                        'order_qte_input' => $quantity_array,
-                        'id_order' => $prestashop_order_id,
-                    ));
+                                         'ids_order_detail' => $ids_order_detail_array,
+                                         'order_qte_input' => $quantity_array,
+                                         'id_order' => $prestashop_order_id,
+                                     ));
                 }
             }
             $orderReturn->state = 1;
@@ -599,36 +599,36 @@ ce('track:click');
             $condition = "";
         }
         $sql = 'SELECT p.*, product_shop.*, pl.*, m.name AS manufacturer_name, i.id_image, s.quantity ,'
-                . '( '
-                . '    SELECT cp.id_category '
-                . '    FROM `' . _DB_PREFIX_ . 'category_product` cp '
-                . '    INNER JOIN `' . _DB_PREFIX_ . 'category` c ON (cp.id_category = c.id_category) '
-                . Shop::addSqlAssociation('category', 'c') . ' '
-                . '    WHERE cp.id_product = p.id_product '
-                . '    ORDER BY c.level_depth DESC '
-                . '    LIMIT 1 '
-                . ') id_category, '
-                . '( '
-                . '    SELECT t.rate '
-                . '    FROM `' . _DB_PREFIX_ . 'tax` t '
-                . '    INNER JOIN `' . _DB_PREFIX_ . 'tax_rule` tr ON (tr.id_tax = t.id_tax) '
-                . '    INNER JOIN `' . _DB_PREFIX_ . 'country` c ON (tr.id_country = c.id_country) '
-                . Shop::addSqlAssociation('country', 'c') . ' '
-                . '    WHERE c.iso_code = \'NL\''
-                . '    AND tr.id_tax_rules_group = p.id_tax_rules_group'
-                . '    ORDER BY t.rate DESC '
-                . '    LIMIT 1 '
-                . ') rate '
-                . 'FROM `' . _DB_PREFIX_ . 'product` p '
-                . Shop::addSqlAssociation('product', 'p') . ' '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_shop = ' . $id_shop . ') '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) '
-                . 'WHERE ' . $condition . ' pl.id_lang = ' . $id_lang . ' '
-                . 'AND product_shop.visibility IN ("both", "catalog") '
-                . 'AND product_shop.active = 1 '
-                . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
+        . '( '
+        . '    SELECT cp.id_category '
+        . '    FROM `' . _DB_PREFIX_ . 'category_product` cp '
+        . '    INNER JOIN `' . _DB_PREFIX_ . 'category` c ON (cp.id_category = c.id_category) '
+        . Shop::addSqlAssociation('category', 'c') . ' '
+        . '    WHERE cp.id_product = p.id_product '
+        . '    ORDER BY c.level_depth DESC '
+        . '    LIMIT 1 '
+        . ') id_category, '
+        . '( '
+        . '    SELECT t.rate '
+        . '    FROM `' . _DB_PREFIX_ . 'tax` t '
+        . '    INNER JOIN `' . _DB_PREFIX_ . 'tax_rule` tr ON (tr.id_tax = t.id_tax) '
+        . '    INNER JOIN `' . _DB_PREFIX_ . 'country` c ON (tr.id_country = c.id_country) '
+        . Shop::addSqlAssociation('country', 'c') . ' '
+        . '    WHERE c.iso_code = \'NL\''
+        . '    AND tr.id_tax_rules_group = p.id_tax_rules_group'
+        . '    ORDER BY t.rate DESC '
+        . '    LIMIT 1 '
+        . ') rate '
+        . 'FROM `' . _DB_PREFIX_ . 'product` p '
+        . Shop::addSqlAssociation('product', 'p') . ' '
+        . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_shop = ' . $id_shop . ') '
+        . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
+        . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) '
+        . 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) '
+        . 'WHERE ' . $condition . ' pl.id_lang = ' . $id_lang . ' '
+        . 'AND product_shop.visibility IN ("both", "catalog") '
+        . 'AND product_shop.active = 1 '
+        . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
 
         $rq = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
         if (!$rq) return array();
@@ -659,7 +659,13 @@ ce('track:click');
                     WHERE s.id_shop = ' . $id_shop . '
                     AND s.id_product = pa.id_product
                     AND s.id_product_attribute = pa.id_product_attribute
-                ) AS quantity
+                ) AS quantity,
+                (
+                SELECT pai.id_image
+                FROM `ps_product_attribute_image` as pai
+                WHERE pai.id_product_attribute = pa.id_product_attribute
+                LIMIT 1
+                ) AS id_image
                 FROM `' . _DB_PREFIX_ . 'product_attribute` pa
                 ' . Shop::addSqlAssociation('product_attribute', 'pa') . '
                 LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac ON pac.`id_product_attribute` = pa.`id_product_attribute`
@@ -667,8 +673,8 @@ ce('track:click');
                 LEFT JOIN `' . _DB_PREFIX_ . 'attribute_group` ag ON ag.`id_attribute_group` = a.`id_attribute_group`
                 LEFT JOIN `' . _DB_PREFIX_ . 'attribute_lang` al ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` = ' . $id_lang . ')
                 LEFT JOIN `' . _DB_PREFIX_ . 'attribute_group_lang` agl ON (ag.`id_attribute_group` = agl.`id_attribute_group` AND agl.`id_lang` = ' . (int) $id_lang . ')
-                ' . $condition . ' GROUP BY pa.`id_product_attribute`  
-                ORDER BY pa.`id_product_attribute`';
+                ' . $condition
+                . ' ORDER BY pa.`id_product_attribute`';
 
         $res = Db::getInstance()->executeS($sql);
         //Get quantity of each variations
@@ -683,7 +689,23 @@ ce('track:click');
                 $attributes[$id] = array();
             }
 
-            $attributes[$id][] = $row;
+            //$attributes[$id][] = $row;
+            //grouping in query is off. Only add product row once.
+            $id_product_attribute = $row['id_product_attribute'];
+            if (!isset($attributes[$id][$id_product_attribute])) {
+                $attributes[$id][$id_product_attribute] = $row;
+            }
+
+            //add all combination info in array to the
+            $id_attribute = $row['id_attribute'];
+            $attributes[$id][$id_product_attribute]['all_attribute_info'][$id_attribute] = array(
+                'id_attribute' => $row['id_attribute'],
+                'id_attribute_group' => $row['id_attribute_group'],
+                'is_color_group' => $row['is_color_group'],
+                'group_name' => $row['group_name'],
+                'attribute_name' => $row['attribute_name'],
+            );
+
         }
         return $attributes;
     }
@@ -691,12 +713,12 @@ ce('track:click');
     private function getCategories() {
         $id_lang = Context::getContext()->language->id;
         $sql = 'SELECT c.`id_category`, c.`id_parent`, cl.`name` '
-                . 'FROM `' . _DB_PREFIX_ . 'category` c '
-                . Shop::addSqlAssociation('category', 'c') . ' '
-                . 'LEFT JOIN `' . _DB_PREFIX_ . 'category_lang` cl ON (cl.`id_category` = c.`id_category` ' . Shop::addSqlRestrictionOnLang('cl') . ') '
-                . 'WHERE cl.`id_lang` = ' . (int) $id_lang . ' '
-                . 'AND c.`active` = 1 '
-                . 'ORDER BY c.`level_depth` ASC';
+        . 'FROM `' . _DB_PREFIX_ . 'category` c '
+        . Shop::addSqlAssociation('category', 'c') . ' '
+        . 'LEFT JOIN `' . _DB_PREFIX_ . 'category_lang` cl ON (cl.`id_category` = c.`id_category` ' . Shop::addSqlRestrictionOnLang('cl') . ') '
+        . 'WHERE cl.`id_lang` = ' . (int) $id_lang . ' '
+        . 'AND c.`active` = 1 '
+        . 'ORDER BY c.`level_depth` ASC';
 
         $rq = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
         $categories = array();
@@ -720,7 +742,7 @@ ce('track:click');
     }
 
     /**
-     * - Syncing product data with ChannelEngine 
+     * - Syncing product data with ChannelEngine
      * (initial import and updates when product info/stock/price etc. changes)
      * @global Product $productObj
      * @param type $prestaProducts
@@ -785,7 +807,10 @@ ce('track:click');
                 $attributes[] = $ed;
             }
         }
-        
+
+        //product data
+        $id_image = $prestaProduct['id_image'];
+        $price = $prestaProduct['price'] * (1.0 + ($product->getVatRate() / 100.0));
 
         if (!$variant) {
             $merchantProductNo = $id;
@@ -795,20 +820,34 @@ ce('track:click');
             $product->setGroupNo($id);
             $product->setStock($variant['quantity']);
 
-            $variantAttrName = $variant['group_name'];
-            $variantAttrNameLower = strtolower($variantAttrName);
-            $variantAttrValue = $variant['attribute_name'];
+            //add variant specific image
+            if (isset($variant['id_image']) && $variant['id_image']) {
+                $id_image = $variant['id_image'];
+            }
 
+            //add variant price change to default price. Using product_attribute_shop.price
+            if ($variant['price'] != 0) {
+                $price = ($prestaProduct['price'] + $variant['price']) * (1.0 + ($product->getVatRate() / 100.0));
+            }
 
-            if($variantAttrNameLower == 'size' || $variantAttrNameLower == 'maat') {
-                $product->setSize($variantAttrValue);
-            } elseif($variantAttrNameLower == 'color' || $variantAttrNameLower == 'colour' || $variantAttrNameLower == 'kleur') {
-                $product->setColor($variantAttrValue);
-            } else {
-                $ed['Key'] = $variantAttrName;
-                $ed['Value'] = $variantAttrValue;
-                $ed['IsPublic'] = true;
-                $attributes[] = $ed;
+            //loop all variant attribute_info
+            if (isset($variant['all_attribute_info']) && is_array($variant['all_attribute_info'])) {
+                foreach($variant['all_attribute_info'] as $variantAttrInfo) {
+                    $variantAttrName = $variantAttrInfo['group_name'];
+                    $variantAttrNameLower = strtolower($variantAttrName);
+                    $variantAttrValue = $variantAttrInfo['attribute_name'];
+
+                    if($variantAttrNameLower == 'size' || $variantAttrNameLower == 'maat') {
+                        $product->setSize($variantAttrValue);
+                    } elseif($variantAttrNameLower == 'color' || $variantAttrNameLower == 'colour' || $variantAttrNameLower == 'kleur') {
+                        $product->setColor($variantAttrValue);
+                    } else {
+                        $ed['Key'] = $variantAttrName;
+                        $ed['Value'] = $variantAttrValue;
+                        $ed['IsPublic'] = true;
+                        $attributes[] = $ed;
+                    }
+                }
             }
         }
         $product->setExtraData($attributes);
@@ -822,11 +861,8 @@ ce('track:click');
             $product->setVatRate($taxObject->rate);
         }
 
-        $price = $prestaProduct['price'] * (1.0 + ($product->getVatRate() / 100.0));
         $product->setPrice($price);
         $product->setListPrice($price);
-
-        $product->setStock($variant['quantity']);
 
         if (isset($prestaProduct['id_category'])) {
             $product->setCategoryTrail($categories[$prestaProduct['id_category']]);
@@ -841,7 +877,7 @@ ce('track:click');
 
         $base_path = _PS_BASE_URL_ . __PS_BASE_URI__;
         $base_path = preg_replace('#^https?://#', '', $base_path);
-        $imagePath = $prestaProduct['id_image'] == "" ? $base_path . 'img/p/en-default-home_default.jpg' : $link->getImageLink($prestaProduct['link_rewrite'], $prestaProduct['id_image'], '');
+        $imagePath = $id_image == "" ? $base_path . 'img/p/en-default-home_default.jpg' : $link->getImageLink($prestaProduct['link_rewrite'], $id_image, '');
         $product->setImageUrl((Configuration::get("PS_SSL_ENABLED") ? 'https://' : 'http://') . $imagePath);
         return $product;
     }
@@ -856,13 +892,13 @@ ce('track:click');
         if (!Combination::isFeatureActive()) return $features;
 
         $sql = 'SELECT fl.name, fp.id_product, fvl.value '
-             . 'FROM `' . _DB_PREFIX_ . 'feature_value_lang` fvl '
-             . 'INNER JOIN `' . _DB_PREFIX_ . 'feature_product` fp ON fp.id_feature_value = fvl.id_feature_value '
-             . 'INNER JOIN `' . _DB_PREFIX_ . 'feature_lang` fl ON fl.id_feature = fp.id_feature AND fl.id_lang = ' . $id_lang . ' '
-             . 'INNER JOIN `' . _DB_PREFIX_ . 'feature` f ON fl.id_feature = f.id_feature '
-             . Shop::addSqlAssociation('feature', 'f') . ' '
-             . (($productId) ?  'WHERE fp.id_product = ' . (int)$productId . ' AND ': 'WHERE ')
-             . 'fvl.id_lang = ' . $id_lang;
+        . 'FROM `' . _DB_PREFIX_ . 'feature_value_lang` fvl '
+        . 'INNER JOIN `' . _DB_PREFIX_ . 'feature_product` fp ON fp.id_feature_value = fvl.id_feature_value '
+        . 'INNER JOIN `' . _DB_PREFIX_ . 'feature_lang` fl ON fl.id_feature = fp.id_feature AND fl.id_lang = ' . $id_lang . ' '
+        . 'INNER JOIN `' . _DB_PREFIX_ . 'feature` f ON fl.id_feature = f.id_feature '
+        . Shop::addSqlAssociation('feature', 'f') . ' '
+        . (($productId) ?  'WHERE fp.id_product = ' . (int)$productId . ' AND ': 'WHERE ')
+        . 'fvl.id_lang = ' . $id_lang;
         $res = Db::getInstance()->executeS($sql);
 
         //Get quantity of each variations
@@ -891,7 +927,7 @@ ce('track:click');
         // 1. Add the values of the digits in the 
         // even-numbered positions: 2, 4, 6, etc.
         $even_sum = $digits[1] + $digits[3] + $digits[5] +
-                $digits[7] + $digits[9] + $digits[11];
+        $digits[7] + $digits[9] + $digits[11];
 
         // 2. Multiply this result by 3.
         $even_sum_three = $even_sum * 3;
@@ -899,7 +935,7 @@ ce('track:click');
         // 3. Add the values of the digits in the 
         // odd-numbered positions: 1, 3, 5, etc.
         $odd_sum = $digits[0] + $digits[2] + $digits[4] +
-                $digits[6] + $digits[8] + $digits[10];
+        $digits[6] + $digits[8] + $digits[10];
 
         // 4. Sum the results of steps 2 and 3.
         $total_sum = $even_sum_three + $odd_sum;
@@ -1004,14 +1040,14 @@ ce('track:click');
             $order_object->secure_key = md5(uniqid(rand(), true));
             $order_id = $order_object->add();
 
-// Insert new Order detail list using cart for the current order
+            // Insert new Order detail list using cart for the current order
 
             $order_detail = new OrderDetail();
             $orderClass = new Order();
             $order_detail->createList($order_object, $cart, 1, $cart->getProducts(), 1);
             $order_detail_list[] = $order_detail;
 
-// Adding an entry in order_carrier table
+            // Adding an entry in order_carrier table
             if (!is_null($CarrierObject)) {
                 $order_carrier = new OrderCarrier();
                 $order_carrier->id_order = (int) $order_object->id;
@@ -1025,7 +1061,7 @@ ce('track:click');
             foreach ($lines as $item) {
                 $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
                 $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_product='" . $item->getId() . "'"
-                        . "WHERE product_id ='" . $getMerchantProductNo[0] . "' AND product_attribute_id = '" . $getMerchantProductNo[1] . "' AND id_order = ' " . $order_object->id . "' ";
+                . "WHERE product_id ='" . $getMerchantProductNo[0] . "' AND product_attribute_id = '" . $getMerchantProductNo[1] . "' AND id_order = ' " . $order_object->id . "' ";
                 Db::getInstance()->Execute($query);
             }
             Db::getInstance()->update('orders', array('id_channelengine_order' => $channelOrderId), 'id_order = ' . $order_object->id);
