@@ -70,8 +70,12 @@ class Channelengine extends Module {
         $this->version = '1.2.0';
         $this->author = 'ChannelEngine (M. Gautam, C. de Ridder)';
         $this->need_instance = 1;
+        $this->client = new CEApiClient(
+            Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'),
+            Configuration::get('CHANNELENGINE_ACCOUNT_API_SECRET'),
+            Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null)
+        );
 
-        $this->client = new CEApiClient(Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'), Configuration::get('CHANNELENGINE_ACCOUNT_API_SECRET'), Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null));
         /**
          * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
          */
@@ -662,7 +666,7 @@ ce('track:click');
                 ) AS quantity,
                 (
                 SELECT pai.id_image
-                FROM `ps_product_attribute_image` as pai
+                FROM  `' . _DB_PREFIX_ . 'product_attribute_image` as pai
                 WHERE pai.id_product_attribute = pa.id_product_attribute
                 LIMIT 1
                 ) AS id_image
