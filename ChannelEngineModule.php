@@ -325,12 +325,12 @@ ce('track:click');
     }
 
     public function hookActionProductAdd($params) {
-        //$products = $this->getProducts(NULL, $params['id_product']);
+        //$products = $this->getProducts(NULL, NULL, $params['id_product']);
         //$this->putPrestaProductsToChannelEngine($products, $params['id_product']);
     }
 
     public function hookActionProductUpdate($params) {
-        //$products = $this->getProducts(NULL, $params['id_product']);
+        //$products = $this->getProducts(NULL, NULL, $params['id_product']);
         //$this->putPrestaProductsToChannelEngine($products, $params['id_product']);
     }
 
@@ -592,16 +592,12 @@ ce('track:click');
         $this->putPrestaProductsToChannelEngine($products);
     }
 
-    private function getProducts($updatedSince = 0, $productId = 0) {
+    private function getProducts($updatedSince = 0, $page = null, $productId = null) {
         $ctx = Context::getContext();
 
         $id_lang = (int) $ctx->language->id;
         $id_shop = (int) $ctx->shop->id;
-        if ($productId) {
-            $condition = 'p.id_product = ' . $productId . ' AND ';
-        } else {
-            $condition = "";
-        }
+        
         $sql = 'SELECT p.*, product_shop.*, pl.*, m.name AS manufacturer_name, i.id_image, s.quantity ,'
         . '( '
         . '    SELECT cp.id_category '
@@ -629,12 +625,26 @@ ce('track:click');
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) '
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) '
-        . 'WHERE ' . $condition . ' pl.id_lang = ' . $id_lang . ' '
+        . 'WHERE ';
+
+        if(!is_null($productId)) $sql .= ' p.id_product = ' . intval($productId) . ' AND ';
+
+        $sql .= ' pl.id_lang = ' . $id_lang . ' '
         . 'AND product_shop.visibility IN ("both", "catalog") '
         . 'AND product_shop.active = 1 '
         . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
 
+        if(!is_null($page)) {
+            $page = intval($page);   
+            if($page <= 0) $page = 1;
+
+            $limit = 1000;
+            $offset = $limit * ($page - 1);
+            $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
+        }
+
         $rq = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+
         if (!$rq) return array();
 
         return ($rq);
@@ -752,8 +762,8 @@ ce('track:click');
      * @param type $prestaProducts
      * @param type $channelEngineObject
      */
-    public function cronProductSync($lastUpdatedTimestamp) {
-        $products = $this->getProducts($lastUpdatedTimestamp);
+    public function cronProductSync($lastUpdatedTimestamp, $page = null) {
+        $products = $this->getProducts($lastUpdatedTimestamp, $page);
         $this->putPrestaProductsToChannelEngine($products);
     }
 
@@ -778,7 +788,8 @@ ce('track:click');
             }
         }
         try {
-            $this->client->postProducts($products);
+            $results = $this->client->postProducts($products);
+            pr($results);
         } catch (Exception $ex) {
             pr($ex);
         }
