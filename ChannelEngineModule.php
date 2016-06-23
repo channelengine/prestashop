@@ -806,7 +806,7 @@ ce('track:click');
             foreach ($extradata[$id] as $single) {
                 $ed = array();
                 $ed['Key'] = $single['name'];
-                $ed['Value'] = $single['value'];
+                $ed['Value'] = $this->truncate($single['value'], 100);
                 $ed['IsPublic'] = true;
                 $attributes[] = $ed;
             }
@@ -847,7 +847,7 @@ ce('track:click');
                         $product->setColor($variantAttrValue);
                     } else {
                         $ed['Key'] = $variantAttrName;
-                        $ed['Value'] = $variantAttrValue;
+                        $ed['Value'] = $this->truncate($variantAttrValue, 100);
                         $ed['IsPublic'] = true;
                         $attributes[] = $ed;
                     }
@@ -918,6 +918,11 @@ ce('track:click');
             $features[$id][] = $row;
         }
         return $features;
+    }
+
+    private function truncate($string, $length) {
+        if(strlen($string) <= $length) return $string;
+        return substr($string, 0 , $length);
     }
 
     function validateGtin($barcode) {
