@@ -67,8 +67,8 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '1.2.0';
-        $this->author = 'ChannelEngine (M. Gautam, C. de Ridder)';
+        $this->version = '1.3.0';
+        $this->author = 'ChannelEngine';
         $this->need_instance = 1;
         $this->client = new CEApiClient(
             Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'),
