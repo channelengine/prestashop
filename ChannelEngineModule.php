@@ -813,6 +813,13 @@ ce('track:click');
             }
         }
 
+        if (isset($prestaProduct['rate'])) {
+            $product->setVatRate($prestaProduct['rate']);
+        } else {
+            $taxObject = new Tax($prestaProduct['id_tax_rules_group'], 1);
+            $product->setVatRate($taxObject->rate);
+        }
+
         //product data
         $id_image = $prestaProduct['id_image'];
         $price = $prestaProduct['price'] * (1.0 + ($product->getVatRate() / 100.0));
@@ -858,16 +865,9 @@ ce('track:click');
                 }
             }
         }
+
         $product->setExtraData($attributes);
-
         $product->setMerchantProductNo($merchantProductNo);
-
-        if (isset($prestaProduct['rate'])) {
-            $product->setVatRate($prestaProduct['rate']);
-        } else {
-            $taxObject = new Tax($prestaProduct['id_tax_rules_group'], 1);
-            $product->setVatRate($taxObject->rate);
-        }
 
         $product->setPrice($price);
         $product->setListPrice($price);
