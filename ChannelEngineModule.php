@@ -802,16 +802,6 @@ ce('track:click');
         $product->setDescription(strip_tags($prestaProduct['description']));
         $product->setBrand($prestaProduct['manufacturer_name']);
 
-        if (!empty($prestaProduct['ean13']) && $this->validateGtin($prestaProduct['ean13'])) {
-            $product->setEan($prestaProduct['ean13']);
-        } else if (!empty($prestaProduct['isbn']) && $this->validateGtin($prestaProduct['isbn'])) {
-            $product->setEan($prestaProduct['isbn']);
-        } else if (!empty($prestaProduct['upc']) && $this->validateGtin($prestaProduct['upc'])) {
-            $product->setEan($prestaProduct['upc']);
-        } else {
-            $product->setEan("00000000");
-        }
-
         $attributes = array();
         if(isset($extradata[$id])){
             foreach ($extradata[$id] as $single) {
@@ -830,10 +820,13 @@ ce('track:click');
         if (!$variant) {
             $merchantProductNo = $id;
             $product->setStock($prestaProduct['quantity']);
+            $product->setEan($this->extractGtin($prestaProduct));
         } else {
+
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
             $product->setGroupNo($id);
             $product->setStock($variant['quantity']);
+            $product->setEan($this->extractGtin($variant));
 
             //add variant specific image
             if (isset($variant['id_image']) && $variant['id_image']) {
@@ -897,7 +890,19 @@ ce('track:click');
         return $product;
     }
 
-    function getExtraData($productId = FALSE) {
+    private function extractGtin($product) {
+        if (!empty($product['ean13']) && $this->validateGtin($product['ean13'])) {
+            return $product['ean13'];
+        } else if (!empty($product['isbn']) && $this->validateGtin($product['isbn'])) {
+            return $product['isbn'];
+        } else if (!empty($product['upc']) && $this->validateGtin($product['upc'])) {
+            return $product['upc'];
+        } else {
+            return "00000000";
+        }
+    }
+
+    private function getExtraData($productId = FALSE) {
 
         $ctx = Context::getContext();
         $id_lang = (int) $ctx->language->id;
@@ -936,42 +941,22 @@ ce('track:click');
         return substr($string, 0 , $length);
     }
 
-    function validateGtin($barcode) {
+    private function validateGtin($barcode) {
         // check to see if barcode is 13 digits long
-        if (!preg_match("/^[0-9]{13}$/", $barcode)) {
-            return false;
-        }
+        if (!preg_match("/^[0-9]+$/", $barcode)) return false;
 
-        $digits = $barcode;
 
-        // 1. Add the values of the digits in the 
-        // even-numbered positions: 2, 4, 6, etc.
-        $even_sum = $digits[1] + $digits[3] + $digits[5] +
-        $digits[7] + $digits[9] + $digits[11];
+        $length = strlen($barcode);
+        if($length !== 8 && $length !== 12 && $length !== 13 && $length !== 14) return false;
 
-        // 2. Multiply this result by 3.
-        $even_sum_three = $even_sum * 3;
+        $barcode = str_pad($barcode, 14, "0", STR_PAD_LEFT);
 
-        // 3. Add the values of the digits in the 
-        // odd-numbered positions: 1, 3, 5, etc.
-        $odd_sum = $digits[0] + $digits[2] + $digits[4] +
-        $digits[6] + $digits[8] + $digits[10];
+        // Use total length excluding the check digit (13)
+        $sum = 0;
+        for($i = 0; $i < 13; $i++) $sum += intval($barcode[$i]) * (($i % 2 == 0) ? 3 : 1);
+        $checkDigit = (10 - ($sum % 10)) % 10;
 
-        // 4. Sum the results of steps 2 and 3.
-        $total_sum = $even_sum_three + $odd_sum;
-
-        // 5. The check character is the smallest number which,
-        // when added to the result in step 4, produces a multiple of 10.
-        $next_ten = (ceil($total_sum / 10)) * 10;
-        $check_digit = $next_ten - $total_sum;
-
-        // if the check digit and the last digit of the 
-        // barcode are OK return true;
-        if ($check_digit == $digits[12]) {
-            return true;
-        }
-
-        return false;
+        return $checkDigit == intval($barcode[13]);
     }
 
     function cronOrdersSync() {
