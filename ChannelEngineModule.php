@@ -1135,7 +1135,7 @@ ce('track:click');
 
     function handleRequest() {
         try {
-            //$this->client->validateCallbackHash();
+            $this->client->validateCallbackHash();
         } catch (Exception $e) {
             http_response_code(403);
             exit($e->getMessage());
