@@ -802,15 +802,8 @@ ce('track:click');
         $product->setDescription(strip_tags($prestaProduct['description']));
         $product->setBrand($prestaProduct['manufacturer_name']);
 
-        $attributes = array();
-        if(isset($extradata[$id])){
-            foreach ($extradata[$id] as $single) {
-                $ed = array();
-                $ed['Key'] = $single['name'];
-                $ed['Value'] = $this->truncate($single['value'], 100);
-                $ed['IsPublic'] = true;
-                $attributes[] = $ed;
-            }
+        if(isset($extradata[$id])) {
+            $this->setSpecs($product, $extradata[$id], false);
         }
 
         if (isset($prestaProduct['rate'])) {
@@ -828,8 +821,7 @@ ce('track:click');
             $merchantProductNo = $id;
             $product->setStock($prestaProduct['quantity']);
             $product->setEan($this->extractGtin($prestaProduct));
-        } else {
-
+        } else {  
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
             $product->setGroupNo($id);
             $product->setStock($variant['quantity']);
@@ -847,26 +839,10 @@ ce('track:click');
 
             //loop all variant attribute_info
             if (isset($variant['all_attribute_info']) && is_array($variant['all_attribute_info'])) {
-                foreach($variant['all_attribute_info'] as $variantAttrInfo) {
-                    $variantAttrName = $variantAttrInfo['group_name'];
-                    $variantAttrNameLower = strtolower($variantAttrName);
-                    $variantAttrValue = $variantAttrInfo['attribute_name'];
-
-                    if($variantAttrNameLower == 'size' || $variantAttrNameLower == 'maat') {
-                        $product->setSize($variantAttrValue);
-                    } elseif($variantAttrNameLower == 'color' || $variantAttrNameLower == 'colour' || $variantAttrNameLower == 'kleur') {
-                        $product->setColor($variantAttrValue);
-                    } else {
-                        $ed['Key'] = $variantAttrName;
-                        $ed['Value'] = $this->truncate($variantAttrValue, 100);
-                        $ed['IsPublic'] = true;
-                        $attributes[] = $ed;
-                    }
-                }
+                $this->setSpecs($product, $variant['all_attribute_info'], true);
             }
         }
 
-        $product->setExtraData($attributes);
         $product->setMerchantProductNo($merchantProductNo);
 
         $product->setPrice($price);
@@ -887,7 +863,71 @@ ce('track:click');
         $base_path = preg_replace('#^https?://#', '', $base_path);
         $imagePath = $id_image == "" ? $base_path . 'img/p/en-default-home_default.jpg' : $link->getImageLink($prestaProduct['link_rewrite'], $id_image, '');
         $product->setImageUrl((Configuration::get("PS_SSL_ENABLED") ? 'https://' : 'http://') . $imagePath);
+
         return $product;
+    }
+
+    private function setSpecs($product, $specs, $isVariant) {
+        $nameKey = $isVariant ? 'group_name' : 'name';
+        $valueKey = $isVariant ? 'attribute_name' : 'value';
+
+        $ed = $product->getExtraData();
+
+        foreach($specs as $spec) {
+            $isColorGroup = (isset($spec['is_color_group']) && $spec['is_color_group'] == 1);
+
+            $specName = $spec[$nameKey];
+            $specValue = $spec[$valueKey];
+            $specKey = strtolower($specName);
+
+            // Filter some invalid values
+            if(strtolower($specValue) == 'zie bovenstaand') continue;
+
+            if($specKey == 'maat' || $specKey == 'afmetingen' || $specKey == 'size' || $specKey == 'dimensions') {
+                $product->setSize($specValue);
+            } elseif($isColorGroup || $specKey == 'kleur' || $specKey == 'color' || $specKey == 'colour') {
+                $product->setColor($specValue);
+            } else {
+                $item = array();
+                $item['Key'] = $specName;
+                $item['Value'] = $this->truncate($specValue, 100);
+                $item['IsPublic'] = true;
+                $ed[] = $item;
+            }
+        }
+
+        if(empty($product->getSize())) {
+            $specName = $spec[$nameKey];
+            $specValue = $spec[$valueKey];
+            $specKey = strtolower($specName);
+
+            foreach($specs as $spec) {
+                if(strpos($specKey, 'maat') !== false || 
+                   strpos($specKey, 'afmetingen') !== false || 
+                   strpos($specKey, 'size') !== false ||
+                   strpos($specKey, 'dimensions') !== false) {
+                    $product->setSize($specValue);
+                    break;
+                }
+            }
+        }
+
+        if(empty($product->getColor())) {
+            $specName = $spec[$nameKey];
+            $specValue = $spec[$valueKey];
+            $specKey = strtolower($specName);
+
+            foreach($specs as $spec) {
+                if(strpos($specKey, 'kleur') !== false || 
+                   strpos($specKey, 'color') !== false || 
+                   strpos($specKey, 'colour') !== false) {
+                    $product->setColor($specValue);
+                    break;
+                }
+            }
+        }
+
+        $product->setExtraData($ed);
     }
 
     private function extractGtin($product) {
@@ -1095,7 +1135,7 @@ ce('track:click');
 
     function handleRequest() {
         try {
-            $this->client->validateCallbackHash();
+            //$this->client->validateCallbackHash();
         } catch (Exception $e) {
             http_response_code(403);
             exit($e->getMessage());
