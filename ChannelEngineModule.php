@@ -631,7 +631,6 @@ ce('track:click');
 
         $sql .= ' pl.id_lang = ' . $id_lang . ' '
         . 'AND product_shop.visibility IN ("both", "catalog") '
-        . 'AND product_shop.active = 1 '
         . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
 
         if(!is_null($page)) {
@@ -798,6 +797,8 @@ ce('track:click');
     function createProductObject($prestaProduct, $variant, $categories, $extradata) {
         $id = $prestaProduct['id_product'];
         $product = new CEProduct();
+        $active = filter_var($prestaProduct['active'], FILTER_VALIDATE_BOOLEAN);
+        $product->setDeactivate(!$active);
         $product->setName($prestaProduct['name']);
         $product->setDescription(strip_tags($prestaProduct['description']));
         $product->setBrand($prestaProduct['manufacturer_name']);
