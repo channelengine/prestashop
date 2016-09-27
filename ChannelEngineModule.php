@@ -817,16 +817,23 @@ ce('track:click');
         //product data
         $id_image = $prestaProduct['id_image'];
         $price = $prestaProduct['price'] * (1.0 + ($product->getVatRate() / 100.0));
-
+        
+        $ed = $product->getExtraData();
+        $minQty = new CEProductExtraDataItem();
+        $minQty->setKey('MinimalOrderQuantity');
+        $minQty->setIsPublic(false);
+        
         if (!$variant) {
             $merchantProductNo = $id;
             $product->setStock($prestaProduct['quantity']);
             $product->setEan($this->extractGtin($prestaProduct));
+            $minQty->setValue($prestaProduct['minimal_quantity']);
         } else {  
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
             $product->setGroupNo($id);
             $product->setStock($variant['quantity']);
             $product->setEan($this->extractGtin($variant));
+            $minQty->setValue($variant['minimal_quantity']);
 
             //add variant specific image
             if (isset($variant['id_image']) && $variant['id_image']) {
@@ -843,6 +850,8 @@ ce('track:click');
                 $this->setSpecs($product, $variant['all_attribute_info'], true);
             }
         }
+        $ed[] = $minQty;
+        $product->setExtraData($ed);
 
         $product->setMerchantProductNo($merchantProductNo);
 
