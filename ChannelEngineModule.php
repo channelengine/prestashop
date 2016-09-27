@@ -889,10 +889,10 @@ ce('track:click');
             } elseif($isColorGroup || $specKey == 'kleur' || $specKey == 'color' || $specKey == 'colour') {
                 $product->setColor($specValue);
             } else {
-                $item = array();
-                $item['Key'] = $specName;
-                $item['Value'] = $this->truncate($specValue, 100);
-                $item['IsPublic'] = true;
+                $item = new CEProductExtraDataItem();
+                $item->setKey($specName);
+                $item->setValue($this->truncate($specValue, 100));
+                $item->setIsPublic(true);
                 $ed[] = $item;
             }
         }
