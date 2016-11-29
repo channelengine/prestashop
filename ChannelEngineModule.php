@@ -906,7 +906,8 @@ ce('track:click');
             }
         }
 
-        if(empty($product->getSize())) {
+        $size = $product->getSize();
+        if(empty($size)) {
             $specName = $spec[$nameKey];
             $specValue = $spec[$valueKey];
             $specKey = strtolower($specName);
@@ -922,7 +923,8 @@ ce('track:click');
             }
         }
 
-        if(empty($product->getColor())) {
+        $color = $product->getColor();
+        if(empty($color)) {
             $specName = $spec[$nameKey];
             $specValue = $spec[$valueKey];
             $specKey = strtolower($specName);
