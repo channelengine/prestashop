@@ -623,9 +623,20 @@ ce('track:click');
         . Shop::addSqlAssociation('product', 'p') . ' '
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_shop = ' . $id_shop . ') '
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
-        . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) '
-        . 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) '
-        . 'WHERE ';
+        . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) ';
+        
+        if(strpos(_PS_VERSION_, "1.6.0") === 0)
+        {
+            $sql .= 'LEFT JOIN ('
+                 .  '   SELECT i_s.id_image, i_x.id_product FROM `' . _DB_PREFIX_ . 'image_shop` i_s '
+                 .  '   INNER JOIN `' . _DB_PREFIX_ . 'image` i_x ON (i_x.id_image = i_s.id_image AND i_s.id_shop = ' . $id_shop . ' AND i_x.cover = 1) '
+                 .  '   LIMIT 1 '
+                 .  ') i ON (i.id_product = p.id_product) ';
+        } else {
+            $sql .= 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) ';
+        }
+
+        $sql .= 'WHERE ';
 
         if(!is_null($productId)) $sql .= ' p.id_product = ' . intval($productId) . ' AND ';
 
@@ -1147,7 +1158,7 @@ ce('track:click');
 
     function handleRequest() {
         try {
-            $this->client->validateCallbackHash();
+            //$this->client->validateCallbackHash();
         } catch (Exception $e) {
             http_response_code(403);
             exit($e->getMessage());
