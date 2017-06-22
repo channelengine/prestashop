@@ -624,7 +624,7 @@ ce('track:click');
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_shop = ' . $id_shop . ') '
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
         . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) ';
-        
+
         if(strpos(_PS_VERSION_, "1.6.0") === 0)
         {
             $sql .= 'LEFT JOIN ('
@@ -653,11 +653,12 @@ ce('track:click');
             $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
         }
 
-        $rq = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+        $db = Db::getInstance(_PS_USE_SQL_SLAVE_);
+    
+        $rq = $db->executeS($sql);
+        if(!$rq) var_dump($db->getMsgError());
 
-        if (!$rq) return array();
-
-        return ($rq);
+        return $rq;
     }
 
     public function getAttributeCombinations($id_product = FALSE) {
@@ -880,6 +881,10 @@ ce('track:click');
         $link = new Link();
         $product->setUrl($link->getProductLink($id));
 
+        if($product->getStock() < 0){
+            $product->setStock(0);
+        }
+
         $base_path = _PS_BASE_URL_ . __PS_BASE_URI__;
         $base_path = preg_replace('#^https?://#', '', $base_path);
         $imagePath = $id_image == "" ? $base_path . 'img/p/en-default-home_default.jpg' : $link->getImageLink($prestaProduct['link_rewrite'], $id_image, '');
@@ -1048,11 +1053,13 @@ ce('track:click');
             $AddressObject->id_country = Country::getByIso($billingAddress->getCountryIso());
             $AddressObject->alias = ($billingAddress->getcompanyName() != "") ? "Company" : "Home";
             $AddressObject->add();
+
             $CarrierObject = new Carrier();
             $CarrierObject->delay[1] = "2-4";
             $CarrierObject->active = 1;
             $CarrierObject->name = "ChannelEngine Order";
             $CarrierObject->add();
+            
             $id_carrier = $CarrierObject->id;
             $currency_object = new Currency();
             $default_currency_object = $currency_object->getDefaultCurrency();
@@ -1085,6 +1092,7 @@ ce('track:click');
 
             $cart->update();
             $order_object = new Order();
+            $order_object->reference = $order->getChannelOrderNo()
             $order_object->id_address_delivery = $id_address;
             $order_object->id_address_invoice = $id_address;
             $order_object->id_cart = $cart->id;
@@ -1173,7 +1181,8 @@ ce('track:click');
                 $this->cronReturnSync();
                 break;
             case 'products':
-                $timestamp = $_GET['updatedSince'];
+                $timestamp = isset($_GET['updatedSince']) ? $_GET['updatedSince'] : null;
+                $page = isset($_GET['page']) ? $_GET['page'] : null;
                 $this->cronProductSync($timestamp);
                 break;
             default:
