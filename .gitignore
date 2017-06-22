@@ -35,3 +35,4 @@ project.xml
 
 export/
 *.lock
+*.sublime-workspace
