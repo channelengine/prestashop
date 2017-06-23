@@ -1092,7 +1092,7 @@ ce('track:click');
 
             $cart->update();
             $order_object = new Order();
-            $order_object->reference = $order->getChannelOrderNo()
+            $order_object->reference = $order->getChannelOrderNo();
             $order_object->id_address_delivery = $id_address;
             $order_object->id_address_invoice = $id_address;
             $order_object->id_cart = $cart->id;
