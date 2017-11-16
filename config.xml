@@ -4,7 +4,7 @@
 	<displayName><![CDATA[ChannelEngine]]></displayName>
 	<version><![CDATA[1.0.0]]></version>
 	<description><![CDATA[ChannelEngine extension for Prestashop]]></description>
-	<author><![CDATA[Manish Gautam]]></author>
+	<author><![CDATA[Christiaan de Ridder]]></author>
 	<tab><![CDATA[market_place]]></tab>
 	<confirmUninstall><![CDATA[Are you sure you want to uninstall the module?]]></confirmUninstall>
 	<is_configurable>1</is_configurable>
