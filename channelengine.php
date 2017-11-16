@@ -29,7 +29,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 // Autoload files using Composer autoload
-require_once 'vendor/autoload.php';
+require_once( dirname(__FILE__) . "/vendor/autoload.php");
 
 // Import the required namespaces
 use ChannelEngineApiClient\Client\ApiClient as CEApiClient;
