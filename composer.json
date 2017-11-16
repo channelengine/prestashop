@@ -10,7 +10,7 @@
   ],
   "require": {
     "php": ">=5.3.2",
-    "channelengine/api-client": "dev-master"
+    "channelengine/api-client-php": "dev-api-v1"
   },
   "type": "prestashop-module"
 }
