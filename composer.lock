@@ -4,21 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "22bfe42064d066ef845d65ba58a9ba0a",
-    "content-hash": "37e634d92ddf2c628f9d962c5f848841",
+    "content-hash": "5db09a8c7e69d7f2f0c578a106f2a9f9",
     "packages": [
         {
-            "name": "channelengine/api-client",
-            "version": "dev-master",
+            "name": "channelengine/api-client-php",
+            "version": "dev-api-v1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/channelengine/api-client-php.git",
-                "reference": "269013fcad7e78a109fb769a6cbb14f324eca419"
+                "reference": "fc7eeb1044000b98b3608bb2837f774a4b598981"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/channelengine/api-client-php/zipball/269013fcad7e78a109fb769a6cbb14f324eca419",
-                "reference": "269013fcad7e78a109fb769a6cbb14f324eca419",
+                "url": "https://api.github.com/repos/channelengine/api-client-php/zipball/fc7eeb1044000b98b3608bb2837f774a4b598981",
+                "reference": "fc7eeb1044000b98b3608bb2837f774a4b598981",
                 "shasum": ""
             },
             "require": {
@@ -42,17 +41,19 @@
                 }
             ],
             "description": "ChannelEngine API Client for PHP",
-            "time": "2016-02-29 08:48:16"
+            "time": "2016-11-23 10:13:42"
         }
     ],
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "channelengine/api-client": 20
+        "channelengine/api-client-php": 20
     },
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "php": ">=5.3.2"
+    },
     "platform-dev": []
 }
