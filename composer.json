@@ -1,5 +1,16 @@
 {
-    "require": {
-        "channelengine/api-client": "dev-master"
+  "name": "channelengine/prestashop",
+  "description": "ChannelEngine PrestaShop",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Christiaan de Ridder",
+      "email": "christiaan@channelengine.com"
     }
+  ],
+  "require": {
+    "php": ">=5.3.2",
+    "channelengine/api-client": "dev-master"
+  },
+  "type": "prestashop-module"
 }
