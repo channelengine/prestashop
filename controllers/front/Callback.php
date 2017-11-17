@@ -10,6 +10,7 @@ class ChannelEnginecallbackModuleFrontController extends ModuleFrontController
 		$this->display_column_right = false; 
 		$this->display_header = false;
 		$this->display_footer = false;
+		$this->setTemplate("module:channelengine/views/templates/front/empty.tpl");
 		$this->module->handleRequest();
 	}
 }
