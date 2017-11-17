@@ -1028,31 +1028,17 @@ ce('track:click');
     }
 
     function cronOrdersSync() {
+    	$ctx = Context::getContext();
+
         $orders = $this->client->getOrders(array(7));
         foreach ($orders as $order) {
             $channelOrderId = $order->getId();
-            $billingAddress = $order->getBillingAddress();
-            $shippingAddress = $order->getShippingAddress();
-            if (empty($billingAddress)) {
-                continue;
-            }
 
-            $id_customer = $this->createPrestashopCustomer($billingAddress, $order->getEmail());
+            $id_customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
+            $billingAddress = $this->createPrestaShopAddress($id_customer, $order->getBillingAddress(), $order);
+            $shippingAddress = $this->createPrestaShopAddress($id_customer, $order->getShippingAddress(), $order);
+
             $lines = $order->getLines();
-            $AddressObject = new Address();
-            $AddressObject->id_customer = $id_customer;
-            $AddressObject->firstname = $billingAddress->getfirstName();
-            $AddressObject->lastname = $billingAddress->getlastName();
-            $AddressObject->address1 = " " . $billingAddress->getHouseNr();
-            $AddressObject->address1.= " " . $billingAddress->getHouseNrAddition();
-            $AddressObject->address1.= " " . $billingAddress->getStreetName();
-            $AddressObject->address1.= " " . $billingAddress->getZipCode();
-            $AddressObject->address1.= " " . $billingAddress->getCity();
-            $AddressObject->city = $billingAddress->getCity();
-            $AddressObject->id_customer = $id_customer;
-            $AddressObject->id_country = Country::getByIso($billingAddress->getCountryIso());
-            $AddressObject->alias = ($billingAddress->getcompanyName() != "") ? "Company" : "Home";
-            $AddressObject->add();
 
             $CarrierObject = new Carrier();
             $CarrierObject->delay[1] = "2-4";
@@ -1061,18 +1047,18 @@ ce('track:click');
             $CarrierObject->add();
             
             $id_carrier = $CarrierObject->id;
-            $currency_object = new Currency();
-            $default_currency_object = $currency_object->getDefaultCurrency();
-            $id_currency = $default_currency_object->id;
-            $id_address = $AddressObject->id;
+            $id_currency = $ctx->currency->id; //Currency::getByIso($order->getCurrencyCode()); API v2;
+            $id_lang = $ctx->language->id;
 
             // Create Cart Object
             $cart = new Cart();
             $cart->id_customer = (int) $id_customer;
-            $cart->id_address_delivery = $id_address;
-            $cart->id_address_invoice = $id_address;
-            $cart->id_lang = 1;
-            $cart->id_currency = (int) $id_address;
+
+            $cart->id_address_delivery = $shippingAddress->id;
+            $cart->id_address_invoice = $billingAddress->id;
+
+            $cart->id_lang = $id_lang;
+            $cart->id_currency = $id_currency;
             $cart->id_carrier = $id_carrier;
             $cart->recyclable = 0;
             $cart->id_shop_group = 1;
@@ -1093,14 +1079,14 @@ ce('track:click');
             $cart->update();
             $order_object = new Order();
             $order_object->reference = $order->getChannelOrderNo();
-            $order_object->id_address_delivery = $id_address;
-            $order_object->id_address_invoice = $id_address;
+            $order_object->id_address_delivery = $shippingAddress->id;
+            $order_object->id_address_invoice = $billingAddress->id;
             $order_object->id_cart = $cart->id;
             $order_object->id_currency = $id_currency;
             $order_object->id_customer = $id_customer;
             $order_object->id_carrier = $id_carrier;
             $order_object->payment = "ChannelEngine Order";
-            $order_object->module = "1";
+            $order_object->module = "ps_checkpayment";
             $order_object->valid = 1;
             $order_object->total_paid_tax_excl = $order->getTotalInclVat();
             $order_object->total_discounts_tax_incl = 0;
@@ -1111,10 +1097,14 @@ ce('track:click');
             $order_object->total_paid_tax_incl = $order->getSubTotalInclVat();
             $order_object->conversion_rate = 1;
             $order_object->id_shop = 1;
-            $order_object->id_lang = 1;
+            $order_object->id_lang = $id_lang;
             $order_object->id_shop_group = 1;
             $order_object->secure_key = md5(uniqid(rand(), true));
             $order_id = $order_object->add();
+
+            $order_object->setCurrentState(Configuration::get('PS_OS_PAYMENT'));
+
+            $order_object->save();
 
             // Insert new Order detail list using cart for the current order
 
@@ -1134,6 +1124,7 @@ ce('track:click');
                 $order_carrier->shipping_cost_tax_incl = (float) $order_object->total_shipping_tax_incl;
                 $order_carrier->add();
             }
+
             foreach ($lines as $item) {
                 $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
                 $query = "UPDATE `" . _DB_PREFIX_ . "order_detail` SET id_channelengine_product='" . $item->getId() . "'"
@@ -1144,17 +1135,40 @@ ce('track:click');
         }
     }
 
+    function createPrestaShopAddress($customerId, $ceAddress, $ceOrder) {
+    	$address = new Address();
+        
+        $address->firstname = $ceAddress->getFirstName();
+        $address->lastname = $ceAddress->getLastName();
+        $address->phone = $ceOrder->getPhone();
+        
+        $address->address1 = trim($ceAddress->getStreetName() . " " . $ceAddress->getHouseNr() . " " . $ceAddress->getHouseNrAddition());
+        $address->postcode = $ceAddress->getZipCode();
+        $address->city = $ceAddress->getCity();
+
+        $address->id_customer = $customerId;
+        $address->id_country = Country::getByIso($ceAddress->getCountryIso());
+
+        $address->company = $ceAddress->getCompanyName();
+        $address->alias = ($ceAddress->getCompanyName() != "") ? "Company" : "Home";
+
+        $address->add();
+
+        return $address;
+    }
+
     /**
      * Create a prestashop Customer
      * @param type $billingAddress
      * @param type $email
      * @return type
      */
-    function createPrestashopCustomer($billingAddress, $email) {
+    function createPrestaShopCustomer($billingAddress, $email) {
         $customer_object = new Customer();
         $customer_object->firstname = $billingAddress->getfirstName();
         $customer_object->lastname = $billingAddress->getLastName();
         $customer_object->email = $email;
+        $customer_object->is_guest = 1;
         $customer_object->passwd = md5(uniqid(rand(), true));
         $customer_object->add();
         return $customer_object->id;
