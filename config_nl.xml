@@ -3,10 +3,10 @@
 	<name>channelengine</name>
 	<displayName><![CDATA[ChannelEngine]]></displayName>
 	<version><![CDATA[2.0.0]]></version>
-	<description><![CDATA[ChannelEngine extension for Prestashop]]></description>
+	<description><![CDATA[ChannelEngine extensie voor Prestashop]]></description>
 	<author><![CDATA[ChannelEngine]]></author>
 	<tab><![CDATA[market_place]]></tab>
-	<confirmUninstall><![CDATA[Are you sure you want to uninstall the module?]]></confirmUninstall>
+	<confirmUninstall><![CDATA[Weet U zeker dat u de module wilt deïnstalleren?]]></confirmUninstall>
 	<is_configurable>1</is_configurable>
 	<need_instance>1</need_instance>
 	<limited_countries></limited_countries>
