@@ -28,7 +28,7 @@ include(dirname(__FILE__) . '/../../config/config.inc.php');
 include(dirname(__FILE__) . '/../../init.php');
 include(dirname(__FILE__) . '/channelengine.php');
 
-class channelEngineSynchronizeProductsTask extends Channelengine {
+class channelEngineSynchronizeOffersTask extends Channelengine {
 
 	public function __construct() {
 		parent::__construct();
@@ -37,9 +37,9 @@ class channelEngineSynchronizeProductsTask extends Channelengine {
 		$argv = $_SERVER['argv'];
 		$argv1 = $argv[1];
 		$timestamp = intval($argv1);
-
-		$this->cronProductSync($timestamp);
+		
+		$this->cronOfferSync($timestamp);
 	}
 }
 
-new channelEngineSynchronizeProductsTask();
+new channelEngineSynchronizeOffersTask();
