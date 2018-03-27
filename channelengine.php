@@ -531,10 +531,51 @@ ce('track:click');
         $ret_text = implode(" > ", $ret);
         return $ret_text;
     }
+    
+    private function getOffers($updatedSince = 0, $page = null, $productId = null) {
+        $ctx = Context::getContext();
 
-    public function initalImport() {
-        $products = $this->getProducts(0);
-        $this->putPrestaProductsToChannelEngine($products);
+        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_shop = (int) $ctx->shop->id;
+
+        $sql = 'SELECT p.*, product_shop.*, s.quantity ,'
+            . '( '
+            . '    SELECT t.rate '
+            . '    FROM `' . _DB_PREFIX_ . 'tax` t '
+            . '    INNER JOIN `' . _DB_PREFIX_ . 'tax_rule` tr ON (tr.id_tax = t.id_tax) '
+            . '    INNER JOIN `' . _DB_PREFIX_ . 'country` c ON (tr.id_country = c.id_country) '
+            . Shop::addSqlAssociation('country', 'c') . ' '
+            . '    WHERE c.iso_code = \'NL\''
+            . '    AND tr.id_tax_rules_group = p.id_tax_rules_group'
+            . '    ORDER BY t.rate DESC '
+            . '    LIMIT 1 '
+            . ') rate '
+            . 'FROM `' . _DB_PREFIX_ . 'product` p '
+            . Shop::addSqlAssociation('product', 'p') . ' '
+            . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 ';
+
+        $sql .= 'WHERE ';
+
+        if(!is_null($productId)) $sql .= ' p.id_product = ' . intval($productId) . ' AND ';
+
+        $sql .= ' product_shop.visibility IN ("both", "catalog") '
+            . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
+
+        if(!is_null($page)) {
+            $page = intval($page);
+            if($page <= 0) $page = 1;
+
+            $limit = 1000;
+            $offset = $limit * ($page - 1);
+            $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
+        }
+
+        $db = Db::getInstance(_PS_USE_SQL_SLAVE_);
+
+        $rq = $db->executeS($sql);
+        if(!$rq) var_dump($db->getMsgError());
+
+        return $rq;
     }
 
     private function getProducts($updatedSince = 0, $page = null, $productId = null) {
@@ -719,6 +760,8 @@ ce('track:click');
      */
     public function cronProductSync($lastUpdatedTimestamp, $page = null) {
         $products = $this->getProducts($lastUpdatedTimestamp, $page);
+        if (!count($products)) {return;}
+
         $this->putPrestaProductsToChannelEngine($products);
     }
 
@@ -749,9 +792,81 @@ ce('track:click');
             $this->pr($results);
         } catch (Exception $e) {
             $serverLog = print_r($e->getResponseObject(),true);
-            $this->logMessage('cronOrdersSync getContent: '. $serverLog . ' | ' . $e->getMessage(), 3 , $e->getCode());
+            $this->logMessage('cronProductSync getContent: '. $serverLog . ' | ' . $e->getMessage(), 3 , $e->getCode());
             $this->pr($e->getMessage());
         }
+    }
+
+    public function cronOfferSync($lastUpdatedTimestamp, $page = null) {
+        $products = $this->getOffers($lastUpdatedTimestamp, $page);
+        if (!count($products)) {return;}
+
+        $this->putPrestaOffersToChannelEngine($products);
+    }
+
+    public function putPrestaOffersToChannelEngine($offers, $productId = FALSE) {
+        $combinations = $this->getAttributeCombinations($productId);
+        $updates = [];
+
+        foreach ($offers as $offer) {
+            $id = $offer['id_product'];
+            if (!isset($combinations[$id])) {
+                $update = $this->createOfferObject($offer, null);
+                $updates[] = $update;
+            } else {
+                $variants = $combinations[$id];
+                foreach ($variants as $variant) {
+                    $update = $this->createOfferObject($offer, $variant);
+                    $updates[] = $update;
+                }
+            }
+        }
+
+        try {
+            $this->getApiConfig();
+            $offerApi = new \ChannelEngine\Merchant\ApiClient\Api\OfferApi(null, $this->apiConfig);
+            $results = $offerApi->offerStockPriceUpdate($updates);
+            $this->pr($results);
+        } catch (Exception $e) {
+            $serverLog = print_r($e->getResponseObject(), true);
+            $this->logMessage('cronOfferSync getContent: '. $serverLog . ' | ' . $e->getMessage(), 3 , $e->getCode());
+            $this->pr($e->getMessage());
+        }
+    }
+
+    function createOfferObject($product, $variant) {
+        $id = $product['id_product'];
+        $offer = new \ChannelEngine\Merchant\ApiClient\Model\MerchantStockPriceUpdateRequest();
+
+        $productVatRate = 0;
+        $productVatRateType = $this->getVatRateType();
+        if (isset($product['rate'])) {
+            $productVatRate = floatval($product['rate']);
+        }
+
+        //>=15% is hoog  <15% is laag   <x% is super laag.
+        $price = $product['price'] * (1.0 + ($productVatRate / 100.0));
+
+        if (!$variant) {
+            $offer->setMerchantProductNo($id);
+            $offer->setPrice($price);
+            $offer->setStock($product['quantity']);
+        } else {
+            //add variant price change to default price. Using product_attribute_shop.price
+            if ($variant['price'] != 0) {
+                $price = ($product['price'] + $variant['price']) * (1.0 + ($productVatRate / 100.0));
+            }
+
+            $offer->setMerchantProductNo($id . "-" . $variant['id_product_attribute']);
+            $offer->setPrice($price);
+            $offer->setStock($variant['quantity']);
+        }
+
+        if($offer->getStock() < 0) {
+            $offer->setStock(0);
+        }
+
+        return $offer;
     }
 
     function createProductObject($prestaProduct, $variant, $categories, $extradata) {
