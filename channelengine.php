@@ -1394,6 +1394,11 @@ ce('track:click');
         return $customer_object->id;
     }
 
+    private function cleanTag($tag) {
+        $tag = str_replace(' ', '_', $tag);
+        if(is_numeric(substr($tag, 0, 1))) $tag = '_' . $tag;
+        return $tag;
+    }
     /*
      * Function to handle request
      */
@@ -1432,7 +1437,7 @@ ce('track:click');
                         if($field == 'ExtraData') {
                             $aXml = $pXml->addChild($field);
                             foreach($fieldValue as $ed) {
-                                $aXml->addChildCData($ed->getKey(), $ed->getValue());
+                                $aXml->addChildCData($this->cleanTag($ed->getKey()), $ed->getValue());
                             }
                         } else {
                             $pXml->addChildCData($field, $fieldValue);
