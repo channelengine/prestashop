@@ -30,7 +30,7 @@ if (!defined('_PS_VERSION_')) {
 // Autoload files using Composer autoload
 require_once( dirname(__FILE__) . "/vendor/autoload.php");
 
-require_once( dirname(__FILE__) . "/classes/SimpleXMLExtended.php");
+require_once( dirname(__FILE__) . "/classes/SimpleXmlExtended.php");
 
 // Import the required namespaces
 class Channelengine extends Module {
