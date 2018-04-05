@@ -62,7 +62,7 @@ class Channelengine extends Module {
     private function getApiConfig() {
         if (!$this->apiConfig) {
             $this->apiConfig = \ChannelEngine\Merchant\ApiClient\Configuration::getDefaultConfiguration();
-            $this->apiConfig->setHost('https://'.Configuration::get('CHANNELENGINE_ACCOUNT_NAME').'.channelengine.net/api');
+            $this->apiConfig->setHost('http://'.Configuration::get('CHANNELENGINE_ACCOUNT_NAME').'.channelengine.local/api');
             $this->apiConfig->setApiKey('apikey', Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY', null));
         }
     }
