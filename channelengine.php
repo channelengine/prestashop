@@ -30,6 +30,8 @@ if (!defined('_PS_VERSION_')) {
 // Autoload files using Composer autoload
 require_once( dirname(__FILE__) . "/vendor/autoload.php");
 
+require_once( dirname(__FILE__) . "/classes/SimpleXMLExtended.php");
+
 // Import the required namespaces
 class Channelengine extends Module {
 
@@ -39,7 +41,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.0.0';
+        $this->version = '2.1.0';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -523,10 +525,11 @@ ce('track:click');
             SELECT `id_category` FROM `' . _DB_PREFIX_ . 'category_product`
             WHERE `id_product` = ' . (int) $id_product)
         )
-            foreach ($row as $val) {
-                $cat = new \Category($val['id_category'], (int) 1);
-                $ret[] = $cat->name;
-            }
+
+        foreach ($row as $val) {
+            $cat = new \Category($val['id_category'], (int) 1);
+            $ret[] = $cat->name;
+        }
 
         $ret_text = implode(" > ", $ret);
         return $ret_text;
@@ -584,7 +587,7 @@ ce('track:click');
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
         $id_shop = (int) $ctx->shop->id;
 
-        $sql = 'SELECT p.*, product_shop.*, pl.*, m.name AS manufacturer_name, i.id_image, s.quantity ,'
+        $sql = 'SELECT p.*, product_shop.*, pl.*, m.name AS manufacturer_name, s.quantity ,'
             . '( '
             . '    SELECT cp.id_category '
             . '    FROM `' . _DB_PREFIX_ . 'category_product` cp '
@@ -610,17 +613,6 @@ ce('track:click');
             . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_shop = ' . $id_shop . ') '
             . 'LEFT JOIN `' . _DB_PREFIX_ . 'stock_available` s ON s.id_product = p.id_product AND s.id_product_attribute = 0 '
             . 'LEFT JOIN `' . _DB_PREFIX_ . 'manufacturer` m ON (m.id_manufacturer = p.id_manufacturer) ';
-
-        if(strpos(_PS_VERSION_, "1.6.0") === 0)
-        {
-            $sql .= 'LEFT JOIN ('
-                .  '   SELECT i_s.id_image, i_x.id_product FROM `' . _DB_PREFIX_ . 'image_shop` i_s '
-                .  '   INNER JOIN `' . _DB_PREFIX_ . 'image` i_x ON (i_x.id_image = i_s.id_image AND i_s.id_shop = ' . $id_shop . ' AND i_x.cover = 1) '
-                .  '   LIMIT 1 '
-                .  ') i ON (i.id_product = p.id_product) ';
-        } else {
-            $sql .= 'LEFT JOIN `' . _DB_PREFIX_ . 'image_shop` i ON (i.id_shop = ' . $id_shop . ' AND i.cover = 1 AND i.id_product = p.id_product) ';
-        }
 
         $sql .= 'WHERE ';
 
@@ -752,39 +744,43 @@ ce('track:click');
     }
 
     /**
-     * - Syncing product data with ChannelEngine
-     * (initial import and updates when product info/stock/price etc. changes)
-     * @global Product $productObj
-     * @param type $prestaProducts
-     * @param type $channelEngineObject
+     * - Fetch and convert prestashop products to CE products
      */
-    public function cronProductSync($lastUpdatedTimestamp, $page = null) {
-        $products = $this->getProducts($lastUpdatedTimestamp, $page);
-        if (!count($products)) {return;}
+    public function getChannelEngineProducts($lastUpdatedTimestamp, $page = null, $productId = null) {
+        $prestaProducts = $this->getProducts($lastUpdatedTimestamp, $page, $productId);
+        if (!count($prestaProducts)) {
+            return array();
+        }
 
-        $this->putPrestaProductsToChannelEngine($products);
-    }
-
-    public function putPrestaProductsToChannelEngine($prestaProducts, $productId = FALSE) {
         $categories = $this->getCategories();
-        $combinations = $this->getAttributeCombinations($productId);
         $extradata = $this->getExtraData($productId);
+        $images = $this->getImages($productId);
+        $combinations = $this->getAttributeCombinations($productId);
+        $combinationImages = $this->getAttributeCombinationImages($productId);
         $products = [];
+
         foreach ($prestaProducts as $prestaProduct) {
 
             $id = $prestaProduct['id_product'];
 
-            if (!isset($combinations[$id])) {
-                $product = $this->createProductObject($prestaProduct, null, $categories, $extradata);
-                $products[] = $product;
-            } else {
+            // Variations
+            $product = $this->createProductObject($prestaProduct, null, $categories, $extradata, $images);
+            $products[] = $product;
+
+            if (isset($combinations[$id])) {
                 $variants = $combinations[$id];
                 foreach ($variants as $variant) {
-                    $product = $this->createProductObject($prestaProduct, $variant, $categories, $extradata);
+                    $product = $this->createProductObject($prestaProduct, $variant, $categories, $extradata, $combinationImages);
                     $products[] = $product;
                 }
             }
         }
+
+        return $products;
+    }
+
+    public function pushProductsToChannelEngine($products) {
+        
         try {
             $this->getApiConfig();
             $productApi = new \ChannelEngine\Merchant\ApiClient\Api\ProductApi(null, $this->apiConfig);
@@ -797,23 +793,23 @@ ce('track:click');
         }
     }
 
-    public function cronOfferSync($lastUpdatedTimestamp, $page = null) {
-        $products = $this->getOffers($lastUpdatedTimestamp, $page);
-        if (!count($products)) {return;}
+    public function getChannelEngineOffers($lastUpdatedTimestamp, $page = null, $productId = null) {
+        $offers = $this->getOffers($lastUpdatedTimestamp, $page, $productId);
+        if (!count($offers)) {
+            return array();
+        }
 
-        $this->putPrestaOffersToChannelEngine($products);
-    }
-
-    public function putPrestaOffersToChannelEngine($offers, $productId = FALSE) {
         $combinations = $this->getAttributeCombinations($productId);
         $updates = [];
 
         foreach ($offers as $offer) {
             $id = $offer['id_product'];
-            if (!isset($combinations[$id])) {
-                $update = $this->createOfferObject($offer, null);
-                $updates[] = $update;
-            } else {
+
+            $update = $this->createOfferObject($offer, null);
+            $updates[] = $update;
+
+            // variations
+            if (isset($combinations[$id])) {
                 $variants = $combinations[$id];
                 foreach ($variants as $variant) {
                     $update = $this->createOfferObject($offer, $variant);
@@ -821,6 +817,11 @@ ce('track:click');
                 }
             }
         }
+
+        return $updates;
+    }
+
+    public function pushOffersToChannelEngine($updates) {
 
         try {
             $this->getApiConfig();
@@ -856,7 +857,7 @@ ce('track:click');
             if ($variant['price'] != 0) {
                 $price = ($product['price'] + $variant['price']) * (1.0 + ($productVatRate / 100.0));
             }
-
+            $offer->setParentMerchantProductNo($id);
             $offer->setMerchantProductNo($id . "-" . $variant['id_product_attribute']);
             $offer->setPrice($price);
             $offer->setStock($variant['quantity']);
@@ -869,12 +870,15 @@ ce('track:click');
         return $offer;
     }
 
-    function createProductObject($prestaProduct, $variant, $categories, $extradata) {
+    function createProductObject($prestaProduct, $variant, $categories, $extradata, $images) {
         $id = $prestaProduct['id_product'];
         $product = new \ChannelEngine\Merchant\ApiClient\Model\MerchantProductRequest();
         $product->setName($prestaProduct['name']);
         $product->setDescription(strip_tags($prestaProduct['description']));
+        // Add short descriptions to the product feed
+        $product['shortDescription'] = strip_tags($prestaProduct['description_short']);
         $product->setBrand($prestaProduct['manufacturer_name']);
+
         $productVatRate = 0;
         $productVatRateType = $this->getVatRateType(); //default rate.
 
@@ -888,8 +892,7 @@ ce('track:click');
         }
         $product->setVatRateType($productVatRateType);
 
-        //product data
-        $id_image = $prestaProduct['id_image'];
+
         //>=15% is hoog  <15% is laag   <x% is super laag.
         $price = $prestaProduct['price'] * (1.0 + ($productVatRate / 100.0));
 
@@ -898,16 +901,24 @@ ce('track:click');
         $minQty->setKey('MinimalOrderQuantity');
         $minQty->setIsPublic(false);
 
+        
+
         if (!$variant) {
             $merchantProductNo = $id;
             $product->setStock($prestaProduct['quantity']);
+            $product->setPurchasePrice(round($prestaProduct['wholesale_price'], 2));
             $product->setEan($this->extractGtin($prestaProduct));
             $minQty->setValue($prestaProduct['minimal_quantity']);
+            $imageLookupId = $id;
         } else {
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
+            $product->setParentMerchantProductNo($id);
             $product->setStock($variant['quantity']);
+            $product->setPurchasePrice(round($variant['wholesale_price'], 2));
             $product->setEan($this->extractGtin($variant));
             $minQty->setValue($variant['minimal_quantity']);
+            $imageLookupId = $variant['id_product_attribute'];
+
 
             //add variant specific image
             if (isset($variant['id_image']) && $variant['id_image']) {
@@ -925,12 +936,28 @@ ce('track:click');
                 //future setColor().
             }
         }
+
+        $link = new Link();
+        $proto = Configuration::get("PS_SSL_ENABLED") ? 'https://' : 'http://';
+        if(isset($images[$imageLookupId])) {
+            $i = 0;
+            foreach($images[$imageLookupId] as $key => $image) {
+                $id_image = $image['id_image'];
+                $path =  $proto . $link->getImageLink($prestaProduct['link_rewrite'], $id_image, '');
+                if($i == 0) {
+                    $product->setImageUrl($path);
+                } else {
+                    $product['extraImageUrl' . $i] = $path;      
+                }
+                $i++;
+            }
+        }
+
         $ed[] = $minQty;
+
         $product->setExtraData($ed);
-
         $product->setMerchantProductNo($merchantProductNo);
-
-        $product->setPrice($price);
+        $product->setPrice(round($price, 2));
 
         if (isset($prestaProduct['id_category'])) {
             $product->setCategoryTrail($categories[$prestaProduct['id_category']]);
@@ -940,15 +967,12 @@ ce('track:click');
         }
 
         $product->setShippingCost($prestaProduct['additional_shipping_cost']);
-        $link = new Link();
         $product->setUrl($link->getProductLink($id));
 
         if($product->getStock() < 0){
             $product->setStock(0);
         }
 
-        $imagePath = $id_image == "" ? '' : (Configuration::get("PS_SSL_ENABLED") ? 'https://' : 'http://').$link->getImageLink($prestaProduct['link_rewrite'], $id_image, '');
-        $product->setImageUrl($imagePath);
         return $product;
     }
 
@@ -1062,6 +1086,67 @@ ce('track:click');
             $features[$id][] = $row;
         }
         return $features;
+    }
+
+    private function getImages($productId = FALSE) {
+
+        $ctx = Context::getContext();
+        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_shop = (int) $ctx->shop->id;
+
+        $images = array();
+
+        $sql = 'SELECT i.id_image, i.id_product, i.position, i.cover '
+            . 'FROM `' . _DB_PREFIX_ . 'image` i '
+            . 'INNER JOIN `' . _DB_PREFIX_ . 'image_shop` i_s ON i_s.id_image = i.id_image AND i_s.id_shop = '  . $id_shop
+            . (($productId) ?  'WHERE i.id_product = ' . (int)$productId : '') . ' '
+            . 'ORDER BY i.id_product ASC, i.cover DESC, i.position ASC ';
+
+        $res = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+
+        if (!$res) return $images;
+
+        foreach ($res as &$row) {
+            $id = $row['id_product'];
+
+            if (!isset($images[$id])) {
+                $images[$id] = array();
+            }
+
+            $images[$id][] = $row;
+        }
+        return $images;
+    }
+
+    private function getAttributeCombinationImages($productId = FALSE) {
+
+        $ctx = Context::getContext();
+        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_shop = (int) $ctx->shop->id;
+
+        $images = array();
+
+        $sql = 'SELECT i.id_image, pai.id_product_attribute, i.position, i.cover '
+            . 'FROM `' . _DB_PREFIX_ . 'product_attribute_image` pai '
+            . 'INNER JOIN `' . _DB_PREFIX_ . 'image` i ON pai.id_image = i.id_image '
+            . 'INNER JOIN `' . _DB_PREFIX_ . 'image_shop` i_s ON i_s.id_image = i.id_image AND i_s.id_shop = '  . $id_shop
+            . (($productId) ?  'WHERE i.id_product = ' . (int)$productId : '') . ' '
+            . 'ORDER BY pai.id_product_attribute ASC, i.cover DESC, i.position ASC ';
+
+        $res = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+
+        if (!$res) return $images;
+
+        foreach ($res as &$row) {
+            $id = $row['id_product_attribute'];
+
+            if (!isset($images[$id])) {
+                $images[$id] = array();
+            }
+
+            $images[$id][] = $row;
+        }
+        return $images;
     }
 
     private function truncate($string, $length) {
@@ -1324,7 +1409,41 @@ ce('track:click');
                 break;
             case 'products':
                 $timestamp = isset($_GET['updatedSince']) ? $_GET['updatedSince'] : null;
-                $this->cronProductSync($timestamp);
+                $page = isset($_GET['page']) ? $_GET['page'] : null;
+                $products = $this->getChannelEngineProducts($timestamp, $page);
+                $this->pushProductsToChannelEngine($products);
+                break;
+            case 'offers':
+                $timestamp = isset($_GET['updatedSince']) ? $_GET['updatedSince'] : null;
+                $page = isset($_GET['page']) ? $_GET['page'] : null;
+                $products = $this->getChannelEngineOffers($timestamp, $page);
+                $this->pushOffersToChannelEngine($products);
+                break;
+            case 'feed':
+                $products = $this->getChannelEngineProducts(0);
+                $xml = new SimpleXMLExtended('<Products Version="' . $this->version . '" GeneratedAt="' . date('c') . '"></Products>');
+
+                foreach($products as $product) {
+                    $pXml = $xml->addChild('Product');
+                    $getters = $product->getters();
+                    foreach($getters as $field => $getter) {
+                        $fieldValue = $product[$field];
+                        $field = ucfirst($field);
+                        if($field == 'ExtraData') {
+                            $aXml = $pXml->addChild($field);
+                            foreach($fieldValue as $ed) {
+                                $aXml->addChildCData($ed->getKey(), $ed->getValue());
+                            }
+                        } else {
+                            $pXml->addChildCData($field, $fieldValue);
+                        }
+                    }
+                    $pXml->addChildCData('ShortDescription', $product['shortDescription']);
+                }
+
+                if(ob_get_length()) ob_clean();
+                header('Content-Type: text/xml');
+                echo($xml->asXML());
                 break;
             default:
                 die('Unknown callback type');

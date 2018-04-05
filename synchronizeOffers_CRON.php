@@ -38,7 +38,8 @@ class channelEngineSynchronizeOffersTask extends Channelengine {
 		$argv1 = $argv[1];
 		$timestamp = intval($argv1);
 		
-		$this->cronOfferSync($timestamp);
+		$offers = $this->getChannelEngineOffers($timestamp);
+        $this->pushOffersToChannelEngine($offers);
 	}
 }
 
