@@ -620,6 +620,7 @@ ce('track:click');
 
         $sql .= ' pl.id_lang = ' . $id_lang . ' '
             . 'AND product_shop.visibility IN ("both", "catalog") '
+            . 'AND product_shop.active = 1 '
             . 'AND p.date_upd >= \'' . date('Y-m-d H:i:s', $updatedSince) . '\'';
 
         if(!is_null($page)) {
