@@ -41,7 +41,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.1';
+        $this->version = '2.1.2';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -227,6 +227,7 @@ class Channelengine extends Module {
      */
     protected function getConfigForm() {
         //todo future: check if guest checkout is enabled. Configuration::get('PS_GUEST_CHECKOUT_ENABLED')
+        $languageId = Context::getContext()->language->id;
 
         return array(
             'form' => array(
@@ -282,8 +283,21 @@ class Channelengine extends Module {
                         'name' => 'CHANNELENGINE_CARRIER',
                         'label' => $this->l('Carrier for new orders'),
                         'options' => array(
-                            'query' => Carrier::getCarriers((int)Configuration::get('PS_LANG_DEFAULT'), true, false, false, null, Carrier::ALL_CARRIERS),
+                            'query' => Carrier::getCarriers($languageId, true, false, false, null, Carrier::ALL_CARRIERS),
                             'id' => 'id_carrier',
+                            'name' => 'name',
+                        )
+                    ),
+                    array(
+                        'col' => 3,
+                        'required' => true,
+                        'cast' => 'intval',
+                        'type' => 'select',
+                        'name' => 'CHANNELENGINE_NEW_ORDER_STATE',
+                        'label' => $this->l('Status for new orders'),
+                        'options' => array(
+                            'query' => $allOrderStates = OrderState::getOrderStates($languageId),
+                            'id' => 'id_order_state',
                             'name' => 'name',
                         )
                     ),
@@ -313,12 +327,16 @@ class Channelengine extends Module {
      * Set values for the inputs.
      */
     protected function getConfigFormValues() {
+        $newOrderState = Configuration::get('CHANNELENGINE_NEW_ORDER_STATE', null);
+        if($newOrderState === false) $newOrderState = Configuration::get('PS_OS_PAYMENT');
+
         return array(
             'CHANNELENGINE_LIVE_MODE' => Configuration::get('CHANNELENGINE_LIVE_MODE', null),
             'CHANNELENGINE_ACCOUNT_API_KEY' => Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'),
             'CHANNELENGINE_ACCOUNT_NAME' => Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null),
             'CHANNELENGINE_EXPECTED_SHIPPING_PERIOD' => Configuration::get('CHANNELENGINE_EXPECTED_SHIPPING_PERIOD', null),
             'CHANNELENGINE_CARRIER' => Configuration::get('CHANNELENGINE_CARRIER', null),
+            'CHANNELENGINE_NEW_ORDER_STATE' => $newOrderState,
             'CHANNELENGINE_SYNC_LANG' => Configuration::get('CHANNELENGINE_SYNC_LANG'),
         );
     }
@@ -1174,6 +1192,13 @@ ce('track:click');
     }
 
     function cronOrdersSync() {
+
+        if(!Configuration::get('PS_GUEST_CHECKOUT_ENABLED')) {
+            $this->logMessage('cronOrdersSync - Guest checkout is disabled, please enable guest checkout');
+            return false;
+        }
+
+        $orders = [];
         $funcOriginal = 'Original'; //use values from original currency. Set to false to get converted to EUR currency.
         $this->getApiConfig();
         $orderApi = new \ChannelEngine\Merchant\ApiClient\Api\OrderApi(null, $this->apiConfig);
@@ -1187,9 +1212,9 @@ ce('track:click');
         }
 
         $id_carrier = $this->getCarrierId();
-        $CarrierObject = new Carrier($id_carrier);
+        $carrier = new Carrier($id_carrier);
 
-        if (!$id_carrier) {
+        if (!Validate::isLoadedObject($carrier)) {
             $this->logMessage('cronOrdersSync - Carrier not found. Check module configuration.');
             return false;
         }
@@ -1210,7 +1235,7 @@ ce('track:click');
                 $order_object_id = $result['id_order'];
             }
 
-            if (!$orderExists){
+            if (!$orderExists) {
 
                 $currencyCode = $order->getCurrencyCode();
                 if (!Currency::exists($currencyCode,'')) {
@@ -1220,18 +1245,19 @@ ce('track:click');
                         $currencyCode = 'EUR';
                         $funcOriginal = '';
                     } else {
-                        $this->pr('Error: currency does not exist in Prestashop: '.$currencyCode. ' for order: ' . $channelOrderId);
+                        $this->logMessage('Error: currency does not exist in Prestashop: '.$currencyCode. ' for order: ' . $channelOrderId);
                         continue; //next order
                     }
                 }
+
                 $id_currency = Currency::getIdByIsoCode($currencyCode); //check if exists?
-                $id_customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
-                if (!$id_customer) {
-                    //todo throw error
+                $customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
+                if (!Validate::isLoadedObject($customer)) {
                     $this->logMessage('cronOrdersSync - Error create customer for order: '.$channelOrderId);
                     continue;
                 }
 
+                $id_customer = $customer->id;
                 $billingAddress = $this->createPrestaShopAddress($id_customer, $order->getBillingAddress(), $order);
                 $shippingAddress = $this->createPrestaShopAddress($id_customer, $order->getShippingAddress(), $order);
 
@@ -1254,7 +1280,6 @@ ce('track:click');
                 $order_object->total_paid_tax_excl = (float)$order->{'get'.$funcOriginal.'TotalInclVat'}() - (float)$order->{'get'.$funcOriginal.'TotalVat'}();
                 $order_object->total_paid_tax_incl = (float)$order->{'get'.$funcOriginal.'TotalInclVat'}();
 
-
                 $order_object->total_paid = $order_object->total_paid_tax_incl;
                 $order_object->total_paid_real = 0; // set by addOrderPayment.
 
@@ -1266,17 +1291,16 @@ ce('track:click');
                 $order_object->total_discounts_tax_incl = $discount;
                 $order_object->total_discounts = $order_object->total_discounts_tax_incl;
 
-
                 $order_object->total_shipping_tax_incl = (float)$order->{'get'.$funcOriginal.'ShippingCostsInclVat'}();
                 $order_object->total_shipping_tax_excl = (float)$order->{'get'.$funcOriginal.'ShippingCostsInclVat'}() - (float)$order->{'get'.$funcOriginal.'ShippingCostsVat'}();
 
-
-                $carrierVat = $CarrierObject->getTaxesRate($shippingAddress);
+                $carrierVat = $carrier->getTaxesRate($shippingAddress);
                 if (is_numeric($carrierVat)) {
                     $order_object->carrier_tax_rate = $carrierVat;
                     $precision = (Currency::getCurrencyInstance((int)$order_object->id_currency)->decimals * _PS_PRICE_DISPLAY_PRECISION_);
                     $order_object->total_shipping_tax_excl = Tools::ps_round($order_object->total_shipping_tax_incl / ( 1 + ($carrierVat/100)), $precision);
                 }
+
                 $order_object->total_shipping = $order_object->total_shipping_tax_incl;
 
                 $order_object->conversion_rate = 1;
@@ -1285,8 +1309,10 @@ ce('track:click');
                 $order_object->id_lang = $id_lang;
                 $order_object->secure_key = md5(uniqid(rand(), true));
                 $order_object->add();
+
                 if (!Validate::isLoadedObject($order_object)) {
-                    //error creating order.
+                    $this->logMessage('cronOrdersSync - Error create order for order: '.$channelOrderId);
+                    continue;
                 }
                 $order_object_id = $order_object->id;
 
@@ -1296,7 +1322,7 @@ ce('track:click');
 
 
                 // Insert new Order detail list using cart for the current order
-                $id_order_state = Configuration::get('PS_OS_PAYMENT');
+                $id_order_state = Configuration::get('CHANNELENGINE_NEW_ORDER_STATE');
                 if (!empty($lines)) {
                     $addressId = $order_object->{Configuration::get('PS_TAX_ADDRESS_TYPE')};
                     foreach ($lines as $item) {
@@ -1305,16 +1331,14 @@ ce('track:click');
                 }
 
                 // Adding an entry in order_carrier table
-                if (!is_null($CarrierObject)) {
-                    $order_carrier = new OrderCarrier();
-                    $order_carrier->id_order = (int) $order_object->id;
+                $order_carrier = new OrderCarrier();
+                $order_carrier->id_order = (int) $order_object->id;
 
-                    $order_carrier->id_carrier = (int) $id_carrier;
-                    $order_carrier->weight = (float) $order_object->getTotalWeight();
-                    $order_carrier->shipping_cost_tax_excl = (float) $order_object->total_shipping_tax_excl;
-                    $order_carrier->shipping_cost_tax_incl = (float) $order_object->total_shipping_tax_incl;
-                    $order_carrier->add();
-                }
+                $order_carrier->id_carrier = (int) $id_carrier;
+                $order_carrier->weight = (float) $order_object->getTotalWeight();
+                $order_carrier->shipping_cost_tax_excl = (float) $order_object->total_shipping_tax_excl;
+                $order_carrier->shipping_cost_tax_incl = (float) $order_object->total_shipping_tax_incl;
+                $order_carrier->add();
 
                 //Add the order status history. Does NOT send out emails.
                 $new_history = new OrderHistory();
@@ -1392,7 +1416,7 @@ ce('track:click');
         $customer_object->is_guest = 1;
         $customer_object->passwd = md5(uniqid(rand(), true));
         $customer_object->add();
-        return $customer_object->id;
+        return $customer_object;
     }
 
     private function cleanTag($tag) {
@@ -1689,7 +1713,7 @@ ce('track:click');
      */
     protected function createOrderDetail(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $orderId, $addressId, $funcOriginal = 'Original')
     {
-        $productId =$item->getmerchantProductNo();
+        $productId = $item->getmerchantProductNo();
         $productAttributeId = 0;
         if (strpos($item->getmerchantProductNo(), '-') !== false) {
             $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
