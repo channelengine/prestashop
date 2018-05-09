@@ -27,11 +27,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-// Autoload files using Composer autoload
-require_once( dirname(__FILE__) . "/vendor/autoload.php");
-
-require_once( dirname(__FILE__) . "/classes/SimpleXmlExtended.php");
-
 // Import the required namespaces
 class Channelengine extends Module {
 
@@ -41,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.2';
+        $this->version = '2.1.3';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -57,6 +52,14 @@ class Channelengine extends Module {
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall the module?');
         $this->ps_versions_compliancy = array('min' => '1.6', 'max' => '1.8');
 
+    }
+
+    /**
+     * Due to conflict with httpguzzle in prestashop 1.7 (ps uses older version). Only load when needed.
+      */
+    private function loadVendorFiles()
+    {
+        require_once( dirname(__FILE__) . "/vendor/autoload.php");
     }
 
     private function getApiConfig() {
@@ -88,6 +91,10 @@ class Channelengine extends Module {
             Configuration::updateValue('CHANNELENGINE_SYNC_LANG', $id_lang);
         }
 
+        if (!Configuration::haskey('CHANNELENGINE_CARRIER_AUTO')) {
+            Configuration::updateValue('CHANNELENGINE_CARRIER_AUTO', 0);
+        }
+
         return parent::install() &&
             $this->registerHook('header') &&
             $this->registerHook('backOfficeHeader') &&
@@ -106,6 +113,7 @@ class Channelengine extends Module {
             Configuration::deleteByName('CHANNELENGINE_ACCOUNT_API_KEY');
             Configuration::deleteByName('CHANNELENGINE_ACCOUNT_NAME');
             Configuration::deleteByName('CHANNELENGINE_EXPECTED_SHIPPING_PERIOD');
+            Configuration::deleteByName('CHANNELENGINE_CARRIER_AUTO');
             Configuration::deleteByName('CHANNELENGINE_CARRIER');
             Configuration::deleteByName('CHANNELENGINE_SYNC_LANG');
         }
@@ -226,101 +234,130 @@ class Channelengine extends Module {
      * Create the structure of your form.
      */
     protected function getConfigForm() {
-        //todo future: check if guest checkout is enabled. Configuration::get('PS_GUEST_CHECKOUT_ENABLED')
         $languageId = Context::getContext()->language->id;
 
-        return array(
+        $form = array(
             'form' => array(
                 'legend' => array(
                     'title' => $this->l('Settings'),
                     'icon' => 'icon-cogs',
-                ),
-                'input' => array(
+                )
+            )
+        );
+
+        if (!Configuration::get('PS_GUEST_CHECKOUT_ENABLED')){
+
+            $form['form']['description'] = $this->l('Guest checkout is disabled. Please enable this in the order preferences.');
+        }
+
+
+        $form['form']['input'] = array(
+            array(
+                'type' => 'switch',
+                'label' => $this->l('ENABLE MODULE'),
+                'name' => 'CHANNELENGINE_LIVE_MODE',
+                'is_bool' => true,
+                'desc' => $this->l('Use this module'),
+                'values' => array(
                     array(
-                        'type' => 'switch',
-                        'label' => $this->l('ENABLE MODULE'),
-                        'name' => 'CHANNELENGINE_LIVE_MODE',
-                        'is_bool' => true,
-                        'desc' => $this->l('Use this module'),
-                        'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
+                        'id' => 'active_on',
+                        'value' => true,
+                        'label' => $this->l('Enabled')
                     ),
                     array(
-                        'col' => 6,
-                        'required' => true,
-                        'type' => 'text',
-                        'name' => 'CHANNELENGINE_ACCOUNT_API_KEY',
-                        'label' => $this->l('Api Key'),
-                    ),
-                    array(
-                        'col' => 6,
-                        'required' => true,
-                        'type' => 'text',
-                        'name' => 'CHANNELENGINE_ACCOUNT_NAME',
-                        'label' => $this->l('Account Name'),
-                    ),
-                    array(
-                        'col' => 3,
-                        'type' => 'text',
-                        'name' => 'CHANNELENGINE_EXPECTED_SHIPPING_PERIOD',
-                        'label' => $this->l('Expected Shipping Period for back orders'),
-                    ),
-                    array(
-                        'col' => 3,
-                        'required' => true,
-                        'cast' => 'intval',
-                        'type' => 'select',
-                        'name' => 'CHANNELENGINE_CARRIER',
-                        'label' => $this->l('Carrier for new orders'),
-                        'options' => array(
-                            'query' => Carrier::getCarriers($languageId, true, false, false, null, Carrier::ALL_CARRIERS),
-                            'id' => 'id_carrier',
-                            'name' => 'name',
-                        )
-                    ),
-                    array(
-                        'col' => 3,
-                        'required' => true,
-                        'cast' => 'intval',
-                        'type' => 'select',
-                        'name' => 'CHANNELENGINE_NEW_ORDER_STATE',
-                        'label' => $this->l('Status for new orders'),
-                        'options' => array(
-                            'query' => $allOrderStates = OrderState::getOrderStates($languageId),
-                            'id' => 'id_order_state',
-                            'name' => 'name',
-                        )
-                    ),
-                    array(
-                        'col' => 3,
-                        'required' => true,
-                        'cast' => 'intval',
-                        'type' => 'select',
-                        'name' => 'CHANNELENGINE_SYNC_LANG',
-                        'label' => $this->l('Language'),
-                        'desc' => $this->l('Language for synchronisation'),
-                        'options' => array(
-                            'query' => Language::getLanguages(false),
-                            'id' => 'id_lang',
-                            'name' => 'name',
-                        )
-                    ),
-                ),
-                'submit' => array(
-                    'title' => $this->l('Save'),
+                        'id' => 'active_off',
+                        'value' => false,
+                        'label' => $this->l('Disabled')
+                    )
                 ),
             ),
+            array(
+                'col' => 6,
+                'required' => true,
+                'type' => 'text',
+                'name' => 'CHANNELENGINE_ACCOUNT_API_KEY',
+                'label' => $this->l('Api Key'),
+            ),
+            array(
+                'col' => 6,
+                'required' => true,
+                'type' => 'text',
+                'name' => 'CHANNELENGINE_ACCOUNT_NAME',
+                'label' => $this->l('Account Name'),
+            ),
+            array(
+                'col' => 3,
+                'type' => 'text',
+                'name' => 'CHANNELENGINE_EXPECTED_SHIPPING_PERIOD',
+                'label' => $this->l('Expected Shipping Period for back orders'),
+            ),
+            array(
+                'required' => true,
+                'type' => 'switch',
+                'label' => $this->l('Auto select carrier'),
+                'name' => 'CHANNELENGINE_CARRIER_AUTO',
+                'is_bool' => true,
+                'desc' => $this->l('Automatically select carrier with best price.'),
+                'values' => array(
+                    array(
+                        'id' => 'carrier_auto_on',
+                        'value' => true,
+                        'label' => $this->l('Enabled')
+                    ),
+                    array(
+                        'id' => 'carrier_auto_off',
+                        'value' => false,
+                        'label' => $this->l('Disabled')
+                    )
+                ),
+            ),
+            array(
+                'col' => 6,
+                'required' => true,
+                'cast' => 'intval',
+                'type' => 'select',
+                'name' => 'CHANNELENGINE_CARRIER',
+                'label' => $this->l('Carrier for new orders'),
+                'desc' =>  $this->l('Carrier for new orders. Also used if automatic carrier selection fails.'),
+                'options' => array(
+                    'query' => Carrier::getCarriers($languageId, true, false, false, null, Carrier::ALL_CARRIERS),
+                    'id' => 'id_carrier',
+                    'name' => 'name',
+                )
+            ),
+            array(
+                'col' => 3,
+                'required' => true,
+                'cast' => 'intval',
+                'type' => 'select',
+                'name' => 'CHANNELENGINE_NEW_ORDER_STATE',
+                'label' => $this->l('Status for new orders'),
+                'options' => array(
+                    'query' => $allOrderStates = OrderState::getOrderStates($languageId),
+                    'id' => 'id_order_state',
+                    'name' => 'name',
+                )
+            ),
+            array(
+                'col' => 3,
+                'required' => true,
+                'cast' => 'intval',
+                'type' => 'select',
+                'name' => 'CHANNELENGINE_SYNC_LANG',
+                'label' => $this->l('Language'),
+                'desc' => $this->l('Language for synchronisation'),
+                'options' => array(
+                    'query' => Language::getLanguages(false),
+                    'id' => 'id_lang',
+                    'name' => 'name',
+                )
+            ),
         );
+        $form['form']['submit'] = array(
+            'title' => $this->l('Save'),
+        );
+
+        return $form;
     }
 
     /**
@@ -335,6 +372,7 @@ class Channelengine extends Module {
             'CHANNELENGINE_ACCOUNT_API_KEY' => Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'),
             'CHANNELENGINE_ACCOUNT_NAME' => Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null),
             'CHANNELENGINE_EXPECTED_SHIPPING_PERIOD' => Configuration::get('CHANNELENGINE_EXPECTED_SHIPPING_PERIOD', null),
+            'CHANNELENGINE_CARRIER_AUTO' => Configuration::get('CHANNELENGINE_CARRIER_AUTO', null),
             'CHANNELENGINE_CARRIER' => Configuration::get('CHANNELENGINE_CARRIER', null),
             'CHANNELENGINE_NEW_ORDER_STATE' => $newOrderState,
             'CHANNELENGINE_SYNC_LANG' => Configuration::get('CHANNELENGINE_SYNC_LANG'),
@@ -356,7 +394,7 @@ class Channelengine extends Module {
      */
     public function hookBackOfficeHeader() {
         if (Tools::getValue('module_name') == $this->name) {
-            $this->context->controller->addJS($this->_path . 'views/js/back.js');
+            //            $this->context->controller->addJS($this->_path . 'views/js/back.js');
             $this->context->controller->addCSS($this->_path . 'views/css/back.css');
         }
     }
@@ -384,6 +422,7 @@ ce('track:click');
      * get returns from channelengine and create order return in prestashop.
      */
     public function cronReturnSync() {
+        $this->loadVendorFiles();
 
         $this->getApiConfig();
         //Retrieve returns
@@ -470,6 +509,8 @@ ce('track:click');
     }
 
     public function cronShipmentSync() {
+        $this->loadVendorFiles();
+
         //get all orders with shipped status & not yet send to channelengine
         $orders = $this->getShippedOrders();
 
@@ -484,7 +525,7 @@ ce('track:click');
      * Send credit info (orderslip) info to channelengine
      */
     public function cronCreditSync() {
-
+        $this->loadVendorFiles();
         //get all orders with shipped status & not yet send to channelengine
         $credits = $this->getCreditOrders();
 
@@ -544,15 +585,15 @@ ce('track:click');
             WHERE `id_product` = ' . (int) $id_product)
         )
 
-        foreach ($row as $val) {
-            $cat = new \Category($val['id_category'], (int) 1);
-            $ret[] = $cat->name;
-        }
+            foreach ($row as $val) {
+                $cat = new \Category($val['id_category'], (int) 1);
+                $ret[] = $cat->name;
+            }
 
         $ret_text = implode(" > ", $ret);
         return $ret_text;
     }
-    
+
     private function getOffers($updatedSince = 0, $page = null, $productId = null) {
         $ctx = Context::getContext();
 
@@ -799,7 +840,7 @@ ce('track:click');
     }
 
     public function pushProductsToChannelEngine($products) {
-        
+
         try {
             $this->getApiConfig();
             $productApi = new \ChannelEngine\Merchant\ApiClient\Api\ProductApi(null, $this->apiConfig);
@@ -920,7 +961,7 @@ ce('track:click');
         $minQty->setKey('MinimalOrderQuantity');
         $minQty->setIsPublic(false);
 
-        
+
 
         if (!$variant) {
             $merchantProductNo = $id;
@@ -966,7 +1007,7 @@ ce('track:click');
                 if($i == 0) {
                     $product->setImageUrl($path);
                 } else {
-                    $product['extraImageUrl' . $i] = $path;      
+                    $product['extraImageUrl' . $i] = $path;
                 }
                 $i++;
             }
@@ -1192,6 +1233,7 @@ ce('track:click');
     }
 
     function cronOrdersSync() {
+        $this->loadVendorFiles();
 
         if(!Configuration::get('PS_GUEST_CHECKOUT_ENABLED')) {
             $this->logMessage('cronOrdersSync - Guest checkout is disabled, please enable guest checkout');
@@ -1211,13 +1253,6 @@ ce('track:click');
             return;
         }
 
-        $id_carrier = $this->getCarrierId();
-        $carrier = new Carrier($id_carrier);
-
-        if (!Validate::isLoadedObject($carrier)) {
-            $this->logMessage('cronOrdersSync - Carrier not found. Check module configuration.');
-            return false;
-        }
 
         $context = Context::getContext();
 
@@ -1264,12 +1299,68 @@ ce('track:click');
                 $lines = $order->getLines();
 
                 $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+                $id_cart = 0;
+
+                //create cart to get carrier. Only if auto carrier is set in module.
+                if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') == '1') {
+                    $cart = new Cart();
+                    $cart->id_customer = $customer->id;
+                    $cart->id_currency		= $id_currency;
+                    $cart->id_lang			= $customer->id_lang;
+                    $cart->id_address_delivery = $shippingAddress->id;
+                    $cart->id_address_invoice = $billingAddress->id;
+                    $cart->recyclable			= 0;
+                    $cart->gift				= 0;
+                    $cart->secure_key		= $customer->secure_key;
+
+                    $cart->id_guest = 0 ;
+                    $cart->id_shop = $context->shop->id;
+                    $cart->id_shop_group = $context->shop->id_shop_group;
+
+                    $cart->id_carrier = 0;
+                    $cart->delivery_option = ''; //leave empty for getDeliveryOption()
+
+                    $cart->add();
+                    $id_cart = $cart->id;
+
+                    if (!empty($lines)) {
+                        $addressId = $cart->id_address_delivery;
+                        foreach ($lines as $item) {
+                            $this->createCartDetail($item, $cart->id, $addressId, $funcOriginal);
+                        }
+                    }
+
+                    $default_country = new Country((int)$shippingAddress->id_country);
+                    $delivery_option = $cart->getDeliveryOption($default_country, false, false);
+                    //get id_carrier from carrier with best price
+                    $delivery_option_list = $cart->getDeliveryOptionList($default_country);
+                    foreach ($delivery_option as $id_address => $key) {
+                        if (isset($delivery_option_list[$id_address][$key])) {
+                            $carrierList = $delivery_option_list[$id_address][$key]['carrier_list'];
+                            foreach ($carrierList as $key => $values) {
+                                $id_carrier = $key;
+                                continue; //only process first
+                            }
+                        }
+                    }
+                    //end create cart
+                }
+
+                //get hardcoded carrier from config OR if not automatically found by cart.
+                if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') != '1' || !isset($id_carrier) || !$id_carrier) {
+                    $id_carrier = $this->getCarrierId(); //from config.
+                }
+                $carrier = new Carrier($id_carrier);
+                if (!Validate::isLoadedObject($carrier)) {
+                    $this->logMessage('cronOrdersSync - Carrier not found. Check module configuration.');
+                    return false;
+                }
 
                 $order_object = new Order();
                 $order_object->reference = $order->getChannelOrderNo();
                 $order_object->id_address_delivery = $shippingAddress->id;
                 $order_object->id_address_invoice = $billingAddress->id;
-                $order_object->id_cart = 0; //$cart->id;
+                $order_object->id_cart = $id_cart;
                 $order_object->id_currency = $id_currency;
                 $order_object->id_customer = $id_customer;
                 $order_object->id_carrier = $id_carrier;
@@ -1377,6 +1468,10 @@ ce('track:click');
                 $this->pr($e->getMessage());
                 return;
             }
+
+            //trigger hook (normally triggered in: public function changeIdOrderState)
+            Hook::exec('actionOrderStatusUpdate', array('newOrderStatus' => $new_os, 'id_order' => (int)$order_object->id), null, false, true, false, $order_object->id_shop);
+
         }
     }
 
@@ -1425,8 +1520,8 @@ ce('track:click');
         return $tag;
     }
     /*
-     * Function to handle request
-     */
+    * Function to handle request
+    */
 
     function handleRequest() {
         $type = isset($_GET['type']) ? $_GET['type'] : '';
@@ -1450,6 +1545,8 @@ ce('track:click');
                 $this->pushOffersToChannelEngine($products);
                 break;
             case 'feed':
+                require_once( dirname(__FILE__) . "/classes/SimpleXmlExtended.php");
+
                 $products = $this->getChannelEngineProducts(0);
                 $xml = new SimpleXMLExtended('<Products Version="' . $this->version . '" GeneratedAt="' . date('c') . '"></Products>');
 
@@ -1676,8 +1773,18 @@ ce('track:click');
     private function getCarrierId()
     {
         $id_carrier = Configuration::get('CHANNELENGINE_CARRIER');
-        //note: optionally get latest version of this carrier. id_carrier changes when updating a carrier.
-        return $id_carrier;
+        $carrier = new Carrier($id_carrier);
+        //get latest version of this carrier. id_carrier changes when updating a carrier.
+        if (Validate::isLoadedObject($carrier)) {
+            if ($carrier->deleted) {
+                $carrier = Carrier::getCarrierByReference($carrier->id_reference);
+            }
+        }
+
+        if (Validate::isLoadedObject($carrier)) {
+            return $carrier->id;
+        }
+        return false;
     }
 
     /**
@@ -1779,5 +1886,47 @@ ce('track:click');
         //$orderDetail->product_ean13
 
         return $orderDetail->add();
+    }
+
+    /**
+     * @param $item Channelengine orderline
+     */
+    protected function createCartDetail(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $cartId, $addressId, $funcOriginal = 'Original')
+    {
+        $productId = $item->getmerchantProductNo();
+        $productAttributeId = 0;
+        if (strpos($item->getmerchantProductNo(), '-') !== false) {
+            $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
+            $productId = $getMerchantProductNo[0];
+            $productAttributeId = $getMerchantProductNo[1];
+        }
+
+        $context = Context::getContext();
+        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+
+        $product = new Product($productId, false, $id_lang);
+
+        $productName = $product->name;
+        if ($productAttributeId) {
+            $attributes = Product::getAttributesParams($productId, $productAttributeId);
+            $nameprefix = ' - ';
+            foreach ($attributes as $attribute) {
+                $productName .= $nameprefix . $attribute['group'].' : '.$attribute['name'];
+                $nameprefix = ', ';
+            }
+        }
+
+        $result_add = Db::getInstance()->insert('cart_product', array(
+            'id_product' =>            (int)$productId,
+            'id_product_attribute' =>    (int)$productAttributeId,
+            'id_cart' =>                (int)$cartId,
+            'id_address_delivery' =>    (int)$addressId,
+            'id_shop' =>                $context->shop->id,
+            'quantity' =>                $item->getQuantity(),
+            'date_add' =>                date('Y-m-d H:i:s')
+        ));
+
+        return $result_add;
+
     }
 }
