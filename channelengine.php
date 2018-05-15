@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.3';
+        $this->version = '2.1.4';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1528,6 +1528,7 @@ ce('track:click');
         switch ($type) {
             case 'orders':
                 $this->cronOrdersSync();
+                $this->cronShipmentSync();
                 break;
             case 'returns':
                 $this->cronReturnSync();
