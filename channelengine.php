@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.4';
+        $this->version = '2.1.5';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1637,9 +1637,8 @@ ce('track:click');
                 $channelengine_shipment_id = $result['id_channelengine_shipment'];
 
                 if ($channelengine_order_id != 0) {
-                    $orderToShip = $order;
-                    $carrier = new Carrier($orderToShip->getIdOrderCarrier());
-                    $products = $orderToShip->getProducts();
+                    $carrier = new Carrier($order->id_carrier);
+                    $products = $order->getProducts();
                     $shipmentLines = array();
 
                     foreach ($products as $key => $product) {
@@ -1655,16 +1654,17 @@ ce('track:click');
                     }
 
                     $shipmentData = array(
-                        'merchantShipmentNo' => $carrier->id,
+                        'merchantShipmentNo' => $order->getIdOrderCarrier(),
                         'merchantOrderNo' => $order->id,
                         'method' => $carrier->name,
                         'lines' => $shipmentLines,
                     );
 
                     $shipment = new \ChannelEngine\Merchant\ApiClient\Model\MerchantShipmentRequest($shipmentData);
-                    if ($orderToShip->shipping_number) {
-                        $shipment->setTrackTraceNo($orderToShip->shipping_number);
+                    if ($order->shipping_number) {
+                        $shipment->setTrackTraceNo($order->shipping_number);
                     }
+                    
                     if ($channelengine_shipment_id == 0) { //always true !
                         $result = $shipmentApi->shipmentCreateWithHttpInfo($shipment);
                         if ($result[0] instanceof ChannelEngine\Merchant\ApiClient\Model\ApiResponse &&  $result[0]->getSuccess()) {
