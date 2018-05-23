@@ -1534,12 +1534,14 @@ ce('track:click');
                 $this->cronReturnSync();
                 break;
             case 'products':
+                $this->loadVendorFiles();
                 $timestamp = isset($_GET['updatedSince']) ? $_GET['updatedSince'] : null;
                 $page = isset($_GET['page']) ? $_GET['page'] : null;
                 $products = $this->getChannelEngineProducts($timestamp, $page);
                 $this->pushProductsToChannelEngine($products);
                 break;
             case 'offers':
+                $this->loadVendorFiles();
                 $timestamp = isset($_GET['updatedSince']) ? $_GET['updatedSince'] : null;
                 $page = isset($_GET['page']) ? $_GET['page'] : null;
                 $products = $this->getChannelEngineOffers($timestamp, $page);
