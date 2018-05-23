@@ -1546,36 +1546,41 @@ ce('track:click');
                 $this->pushOffersToChannelEngine($products);
                 break;
             case 'feed':
-                require_once( dirname(__FILE__) . "/classes/SimpleXmlExtended.php");
-
-                $products = $this->getChannelEngineProducts(0);
-                $xml = new SimpleXMLExtended('<Products Version="' . $this->version . '" GeneratedAt="' . date('c') . '"></Products>');
-
-                foreach($products as $product) {
-                    $pXml = $xml->addChild('Product');
-                    $getters = $product->getters();
-                    foreach($getters as $field => $getter) {
-                        $fieldValue = $product[$field];
-                        $field = ucfirst($field);
-                        if($field == 'ExtraData') {
-                            $aXml = $pXml->addChild($field);
-                            foreach($fieldValue as $ed) {
-                                $aXml->addChildCData($this->cleanTag($ed->getKey()), $ed->getValue());
-                            }
-                        } else {
-                            $pXml->addChildCData($field, $fieldValue);
-                        }
-                    }
-                    $pXml->addChildCData('ShortDescription', $product['shortDescription']);
-                }
-
-                if(ob_get_length()) ob_clean();
-                header('Content-Type: text/xml');
-                echo($xml->asXML());
+                $this->renderFeed();
                 break;
             default:
                 die('Unknown callback type');
         }
+    }
+
+    private function renderFeed() {
+        $this->loadVendorFiles();
+        require_once( dirname(__FILE__) . "/classes/SimpleXmlExtended.php");
+
+        $products = $this->getChannelEngineProducts(0);
+        $xml = new SimpleXMLExtended('<Products Version="' . $this->version . '" GeneratedAt="' . date('c') . '"></Products>');
+
+        foreach($products as $product) {
+            $pXml = $xml->addChild('Product');
+            $getters = $product->getters();
+            foreach($getters as $field => $getter) {
+                $fieldValue = $product[$field];
+                $field = ucfirst($field);
+                if($field == 'ExtraData') {
+                    $aXml = $pXml->addChild($field);
+                    foreach($fieldValue as $ed) {
+                        $aXml->addChildCData($this->cleanTag($ed->getKey()), $ed->getValue());
+                    }
+                } else {
+                    $pXml->addChildCData($field, $fieldValue);
+                }
+            }
+            $pXml->addChildCData('ShortDescription', $product['shortDescription']);
+        }
+
+        if(ob_get_length()) ob_clean();
+        header('Content-Type: text/xml');
+        echo($xml->asXML());
     }
 
     /**
