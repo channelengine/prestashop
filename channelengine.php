@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.5';
+        $this->version = '2.1.6';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
