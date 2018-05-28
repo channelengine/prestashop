@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.6';
+        $this->version = '2.1.7';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -952,7 +952,6 @@ ce('track:click');
         }
         $product->setVatRateType($productVatRateType);
 
-
         //>=15% is hoog  <15% is laag   <x% is super laag.
         $price = $prestaProduct['price'] * (1.0 + ($productVatRate / 100.0));
 
@@ -961,7 +960,11 @@ ce('track:click');
         $minQty->setKey('MinimalOrderQuantity');
         $minQty->setIsPublic(false);
 
-
+        $condition = new \ChannelEngine\Merchant\ApiClient\Model\ExtraDataItem();
+        $condition->setKey('Condition');
+        $condition->setIsPublic(false);
+        $condition->setValue($prestaProduct['condition']);
+        $ed[] = $condition;
 
         if (!$variant) {
             $merchantProductNo = $id;
