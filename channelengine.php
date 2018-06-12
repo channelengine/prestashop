@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.7';
+        $this->version = '2.1.9';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1242,6 +1242,9 @@ ce('track:click');
             $this->logMessage('cronOrdersSync - Guest checkout is disabled, please enable guest checkout');
             return false;
         }
+
+        // Make sure the order payment field is validated with the correct length
+        OrderPayment::$definition['fields']['order_reference']['size'] = 64;
 
         $orders = [];
         $funcOriginal = 'Original'; //use values from original currency. Set to false to get converted to EUR currency.
