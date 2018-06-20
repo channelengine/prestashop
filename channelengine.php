@@ -1849,9 +1849,9 @@ ce('track:click');
      */
     protected function createOrderDetail(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $orderId, $addressId, $funcOriginal = 'Original')
     {
-        $productId = $item->getmerchantProductNo();
+        $productId = $item->getMerchantProductNo();
         $productAttributeId = 0;
-        if (strpos($item->getmerchantProductNo(), '-') !== false) {
+        if (strpos($item->getMerchantProductNo(), '-') !== false) {
             $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
             $productId = $getMerchantProductNo[0];
             $productAttributeId = $getMerchantProductNo[1];
@@ -1861,8 +1861,9 @@ ce('track:click');
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
 
         $product = new Product($productId, false, $id_lang);
-
+        $productReference = $product->reference;
         $productName = $product->name;
+
         if ($productAttributeId) {
             $attributes = Product::getAttributesParams($productId, $productAttributeId);
             $nameprefix = ' - ';
@@ -1870,7 +1871,11 @@ ce('track:click');
                 $productName .= $nameprefix . $attribute['group'].' : '.$attribute['name'];
                 $nameprefix = ', ';
             }
+            $combination = new Combination($productAttributeId);
 
+            if(!empty($combination->reference)) {
+                $productReference = $combination->reference;
+            }
         }
 
         //get advanced stock management warehouse info
@@ -1900,7 +1905,7 @@ ce('track:click');
         $tax_rate = round(( $unitVat * 100 / $unitExclVat) * 2) / 2;
 
         $orderDetail->tax_rate = $tax_rate;
-        $orderDetail->product_reference = $product->reference;
+        $orderDetail->product_reference = $productReference;
         $orderDetail->unit_price_tax_incl = (float)$item->{'get'.$funcOriginal.'UnitPriceInclVat'}();
         //recalc price excl tax to get enough digit because data in $item is only 2 digits
         $orderDetail->unit_price_tax_excl = Tools::ps_round($orderDetail->unit_price_tax_incl / (1 + ($tax_rate/100)), _PS_PRICE_COMPUTE_PRECISION_);
