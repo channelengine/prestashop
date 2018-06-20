@@ -33,20 +33,19 @@ if (!defined('_PS_VERSION_')) {
  * usefull when you modify your database, or register a new hook ...
  * Don't forget to create one file per version.
  */
-function upgrade_module_2_1_9($module)
+function upgrade_module_2_2_0($module)
 {
     $result = true;
     $sql = array();
 
     $sql[] = "ALTER TABLE `" . _DB_PREFIX_ . "orders` "
-        ."MODIFY `reference` VARCHAR(64)";
-
-    $sql[] = "ALTER TABLE `" . _DB_PREFIX_ . "order_payment` "
-        ."MODIFY `order_reference` VARCHAR(64)";
+            ."ADD `channelengine_channel_order_no` VARCHAR(64), "
+            ."ADD `channelengine_channel_name` VARCHAR(64) ";
 
     foreach($sql as $script) {
-        $result = Db::getInstance()->execute($script);
+        $result &= Db::getInstance()->execute($script);
     }
+
     return $result;
 
 }

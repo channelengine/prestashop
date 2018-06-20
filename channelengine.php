@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.1.9';
+        $this->version = '2.2.0';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1243,9 +1243,6 @@ ce('track:click');
             return false;
         }
 
-        // Make sure the order payment field is validated with the correct length
-        OrderPayment::$definition['fields']['order_reference']['size'] = 64;
-
         $orders = [];
         $funcOriginal = 'Original'; //use values from original currency. Set to false to get converted to EUR currency.
         $this->getApiConfig();
@@ -1311,13 +1308,13 @@ ce('track:click');
                 if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') == '1') {
                     $cart = new Cart();
                     $cart->id_customer = $customer->id;
-                    $cart->id_currency		= $id_currency;
-                    $cart->id_lang			= $customer->id_lang;
+                    $cart->id_currency = $id_currency;
+                    $cart->id_lang = $customer->id_lang;
                     $cart->id_address_delivery = $shippingAddress->id;
                     $cart->id_address_invoice = $billingAddress->id;
-                    $cart->recyclable			= 0;
-                    $cart->gift				= 0;
-                    $cart->secure_key		= $customer->secure_key;
+                    $cart->recyclable = 0;
+                    $cart->gift	= 0;
+                    $cart->secure_key = $customer->secure_key;
 
                     $cart->id_guest = 0 ;
                     $cart->id_shop = $context->shop->id;
@@ -1363,9 +1360,9 @@ ce('track:click');
                 }
 
                 $order_object = new Order();
-                $order_object->reference = $order->getChannelOrderNo();
                 $order_object->id_address_delivery = $shippingAddress->id;
                 $order_object->id_address_invoice = $billingAddress->id;
+                $order_object->reference = 'ce-' . $channelOrderId;
                 $order_object->id_cart = $id_cart;
                 $order_object->id_currency = $id_currency;
                 $order_object->id_customer = $id_customer;
@@ -1456,7 +1453,15 @@ ce('track:click');
                 }
 
                 //set channelengine order info in order.
-                Db::getInstance()->update('orders', array('id_channelengine_order' => $channelOrderId), 'id_order = ' . $order_object->id);
+                Db::getInstance()->update('orders', array(
+                    'id_channelengine_order' => $channelOrderId,
+                    'channelengine_channel_order_no' => $order->getChannelOrderNo(),
+                    'channelengine_channel_name' => $order->getChannelName()
+                ), 'id_order = ' . $order_object->id);
+
+                $message = "ChannelEngine Order: #" . $channelOrderId . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
+
+                Db::getInstance()->execute("INSERT INTO " . _DB_PREFIX_ . "message (`id_cart`, `id_customer`, `id_employee`, `id_order`, `message`, `private`, `date_add`) VALUES (0, 0, 0, $order_object->id, '$message', 1, NOW())");
             }
 
             //Send confirmation to channelengine: order is created.
