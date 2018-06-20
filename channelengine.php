@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.0';
+        $this->version = '2.2.1';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -960,11 +960,11 @@ ce('track:click');
         $minQty->setKey('MinimalOrderQuantity');
         $minQty->setIsPublic(false);
 
-        $condition = new \ChannelEngine\Merchant\ApiClient\Model\ExtraDataItem();
-        $condition->setKey('Condition');
-        $condition->setIsPublic(false);
-        $condition->setValue($prestaProduct['condition']);
-        $ed[] = $condition;
+        $ed[] = $this->createExtraDataItem('Condition', $prestaProduct['condition']);
+        $ed[] = $this->createExtraDataItem('Width', $prestaProduct['width']);
+        $ed[] = $this->createExtraDataItem('Height', $prestaProduct['height']);
+        $ed[] = $this->createExtraDataItem('Depth', $prestaProduct['depth']);
+        $ed[] = $this->createExtraDataItem('Weight', $prestaProduct['weight']);
 
         if (!$variant) {
             $merchantProductNo = $id;
@@ -1037,6 +1037,15 @@ ce('track:click');
         }
 
         return $product;
+    }
+
+    private function createExtraDataItem($key, $value) {
+        $condition = new \ChannelEngine\Merchant\ApiClient\Model\ExtraDataItem();
+        $condition->setKey($key);
+        $condition->setIsPublic(false);
+        $condition->setValue($value);
+
+        return $condition;
     }
 
     private function setSpecs($product, $specs, $isVariant) {
