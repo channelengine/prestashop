@@ -965,6 +965,7 @@ ce('track:click');
         $ed[] = $this->createExtraDataItem('Height', $prestaProduct['height']);
         $ed[] = $this->createExtraDataItem('Depth', $prestaProduct['depth']);
         $ed[] = $this->createExtraDataItem('Weight', $prestaProduct['weight']);
+        $ed[] = $this->createExtraDataItem('Reference', $prestaProduct['reference']);
 
         if (!$variant) {
             $merchantProductNo = $id;
