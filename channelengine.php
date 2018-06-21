@@ -793,7 +793,7 @@ ce('track:click');
             $parentId = $row['id_parent'];
             $name = $row['name'];
 
-            if (!empty($parentId)) {
+            if (!empty($parentId) && isset($categories[$parentId])) {
                 $name = $categories[$parentId] . ' > ' . $name;
             }
 
