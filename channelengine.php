@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.1';
+        $this->version = '2.2.2';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1270,229 +1270,234 @@ ce('track:click');
         $context = Context::getContext();
 
         foreach ($orders as $order) {
-            $channelOrderId = $order->getId();
-            $channelPaymentMethod = 'ChannelEngine Payment'; //$order->getPaymentMethod(); not always set
+            try {
+                $channelOrderId = $order->getId();
+                $channelPaymentMethod = 'ChannelEngine Payment'; //$order->getPaymentMethod(); not always set
 
-            //Check if order exists with this $channelOrderId.
-            $orderExists = false;
-            $sql = 'SELECT * FROM '. _DB_PREFIX_ . 'orders WHERE id_channelengine_order = ' . (int)$channelOrderId;
-            $result = Db::getInstance('_PS_USE_SQL_SLAVE_')->getRow($sql);
-            if ($result) {
-                //order already exists.
-                $orderExists = true;
-                $order_object_id = $result['id_order'];
-            }
-
-            if (!$orderExists) {
-
-                $currencyCode = $order->getCurrencyCode();
-                if (!Currency::exists($currencyCode,'')) {
-                    //prestashop has no config defined for this currency
-                    if (Currency::exists('EUR','')) {
-                        //use currency converted to euro by channelengine.
-                        $currencyCode = 'EUR';
-                        $funcOriginal = '';
-                    } else {
-                        $this->logMessage('Error: currency does not exist in Prestashop: '.$currencyCode. ' for order: ' . $channelOrderId);
-                        continue; //next order
-                    }
+                //Check if order exists with this $channelOrderId.
+                $orderExists = false;
+                $sql = 'SELECT * FROM '. _DB_PREFIX_ . 'orders WHERE id_channelengine_order = ' . (int)$channelOrderId;
+                $result = Db::getInstance('_PS_USE_SQL_SLAVE_')->getRow($sql);
+                if ($result) {
+                    //order already exists.
+                    $orderExists = true;
+                    $order_object_id = $result['id_order'];
                 }
 
-                $id_currency = Currency::getIdByIsoCode($currencyCode); //check if exists?
-                $customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
-                if (!Validate::isLoadedObject($customer)) {
-                    $this->logMessage('cronOrdersSync - Error create customer for order: '.$channelOrderId);
-                    continue;
-                }
+                if (!$orderExists) {
 
-                $id_customer = $customer->id;
-                $billingAddress = $this->createPrestaShopAddress($id_customer, $order->getBillingAddress(), $order);
-                $shippingAddress = $this->createPrestaShopAddress($id_customer, $order->getShippingAddress(), $order);
-
-                $lines = $order->getLines();
-
-                $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
-                $id_cart = 0;
-
-                //create cart to get carrier. Only if auto carrier is set in module.
-                if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') == '1') {
-                    $cart = new Cart();
-                    $cart->id_customer = $customer->id;
-                    $cart->id_currency = $id_currency;
-                    $cart->id_lang = $customer->id_lang;
-                    $cart->id_address_delivery = $shippingAddress->id;
-                    $cart->id_address_invoice = $billingAddress->id;
-                    $cart->recyclable = 0;
-                    $cart->gift	= 0;
-                    $cart->secure_key = $customer->secure_key;
-
-                    $cart->id_guest = 0 ;
-                    $cart->id_shop = $context->shop->id;
-                    $cart->id_shop_group = $context->shop->id_shop_group;
-
-                    $cart->id_carrier = 0;
-                    $cart->delivery_option = ''; //leave empty for getDeliveryOption()
-
-                    $cart->add();
-                    $id_cart = $cart->id;
-
-                    if (!empty($lines)) {
-                        $addressId = $cart->id_address_delivery;
-                        foreach ($lines as $item) {
-                            $this->createCartDetail($item, $cart->id, $addressId, $funcOriginal);
+                    $currencyCode = $order->getCurrencyCode();
+                    if (!Currency::exists($currencyCode,'')) {
+                        //prestashop has no config defined for this currency
+                        if (Currency::exists('EUR','')) {
+                            //use currency converted to euro by channelengine.
+                            $currencyCode = 'EUR';
+                            $funcOriginal = '';
+                        } else {
+                            $this->logMessage('Error: currency does not exist in Prestashop: '.$currencyCode. ' for order: ' . $channelOrderId);
+                            continue; //next order
                         }
                     }
 
-                    $default_country = new Country((int)$shippingAddress->id_country);
-                    $delivery_option = $cart->getDeliveryOption($default_country, false, false);
-                    //get id_carrier from carrier with best price
-                    $delivery_option_list = $cart->getDeliveryOptionList($default_country);
-                    foreach ($delivery_option as $id_address => $key) {
-                        if (isset($delivery_option_list[$id_address][$key])) {
-                            $carrierList = $delivery_option_list[$id_address][$key]['carrier_list'];
-                            foreach ($carrierList as $key => $values) {
-                                $id_carrier = $key;
-                                continue; //only process first
+                    $id_currency = Currency::getIdByIsoCode($currencyCode); //check if exists?
+                    $customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
+                    if (!Validate::isLoadedObject($customer)) {
+                        $this->logMessage('cronOrdersSync - Error create customer for order: '.$channelOrderId);
+                        continue;
+                    }
+
+                    $id_customer = $customer->id;
+                    $billingAddress = $this->createPrestaShopAddress($id_customer, $order->getBillingAddress(), $order);
+                    $shippingAddress = $this->createPrestaShopAddress($id_customer, $order->getShippingAddress(), $order);
+
+                    $lines = $order->getLines();
+
+                    $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+                    $id_cart = 0;
+
+                    //create cart to get carrier. Only if auto carrier is set in module.
+                    if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') == '1') {
+                        $cart = new Cart();
+                        $cart->id_customer = $customer->id;
+                        $cart->id_currency = $id_currency;
+                        $cart->id_lang = $customer->id_lang;
+                        $cart->id_address_delivery = $shippingAddress->id;
+                        $cart->id_address_invoice = $billingAddress->id;
+                        $cart->recyclable = 0;
+                        $cart->gift	= 0;
+                        $cart->secure_key = $customer->secure_key;
+
+                        $cart->id_guest = 0 ;
+                        $cart->id_shop = $context->shop->id;
+                        $cart->id_shop_group = $context->shop->id_shop_group;
+
+                        $cart->id_carrier = 0;
+                        $cart->delivery_option = ''; //leave empty for getDeliveryOption()
+
+                        $cart->add();
+                        $id_cart = $cart->id;
+
+                        if (!empty($lines)) {
+                            $addressId = $cart->id_address_delivery;
+                            foreach ($lines as $item) {
+                                $this->createCartDetail($item, $cart->id, $addressId, $funcOriginal);
                             }
                         }
+
+                        $default_country = new Country((int)$shippingAddress->id_country);
+                        $delivery_option = $cart->getDeliveryOption($default_country, false, false);
+                        //get id_carrier from carrier with best price
+                        $delivery_option_list = $cart->getDeliveryOptionList($default_country);
+                        foreach ($delivery_option as $id_address => $key) {
+                            if (isset($delivery_option_list[$id_address][$key])) {
+                                $carrierList = $delivery_option_list[$id_address][$key]['carrier_list'];
+                                foreach ($carrierList as $key => $values) {
+                                    $id_carrier = $key;
+                                    continue; //only process first
+                                }
+                            }
+                        }
+                        //end create cart
                     }
-                    //end create cart
-                }
 
-                //get hardcoded carrier from config OR if not automatically found by cart.
-                if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') != '1' || !isset($id_carrier) || !$id_carrier) {
-                    $id_carrier = $this->getCarrierId(); //from config.
-                }
-                $carrier = new Carrier($id_carrier);
-                if (!Validate::isLoadedObject($carrier)) {
-                    $this->logMessage('cronOrdersSync - Carrier not found. Check module configuration.');
-                    return false;
-                }
-
-                $order_object = new Order();
-                $order_object->id_address_delivery = $shippingAddress->id;
-                $order_object->id_address_invoice = $billingAddress->id;
-                $order_object->reference = 'ce-' . $channelOrderId;
-                $order_object->id_cart = $id_cart;
-                $order_object->id_currency = $id_currency;
-                $order_object->id_customer = $id_customer;
-                $order_object->id_carrier = $id_carrier;
-                $order_object->payment = $channelPaymentMethod; // "ChannelEngine Order";
-                $order_object->module = "channelengine";
-                $order_object->valid = 1;
-
-                $order_object->total_paid_tax_excl = (float)$order->{'get'.$funcOriginal.'TotalInclVat'}() - (float)$order->{'get'.$funcOriginal.'TotalVat'}();
-                $order_object->total_paid_tax_incl = (float)$order->{'get'.$funcOriginal.'TotalInclVat'}();
-
-                $order_object->total_paid = $order_object->total_paid_tax_incl;
-                $order_object->total_paid_real = 0; // set by addOrderPayment.
-
-                $order_object->total_products = (float)$order->{'get'.$funcOriginal.'SubTotalInclVat'}() - (float)$order->{'get'.$funcOriginal.'SubTotalVat'}();
-                $order_object->total_products_wt = (float)$order->{'get'.$funcOriginal.'SubTotalInclVat'}();
-
-                $discount = 0;
-                $order_object->total_discounts_tax_excl = $discount;
-                $order_object->total_discounts_tax_incl = $discount;
-                $order_object->total_discounts = $order_object->total_discounts_tax_incl;
-
-                $order_object->total_shipping_tax_incl = (float)$order->{'get'.$funcOriginal.'ShippingCostsInclVat'}();
-                $order_object->total_shipping_tax_excl = (float)$order->{'get'.$funcOriginal.'ShippingCostsInclVat'}() - (float)$order->{'get'.$funcOriginal.'ShippingCostsVat'}();
-
-                $carrierVat = $carrier->getTaxesRate($shippingAddress);
-                if (is_numeric($carrierVat)) {
-                    $order_object->carrier_tax_rate = $carrierVat;
-                    $precision = (Currency::getCurrencyInstance((int)$order_object->id_currency)->decimals * _PS_PRICE_DISPLAY_PRECISION_);
-                    $order_object->total_shipping_tax_excl = Tools::ps_round($order_object->total_shipping_tax_incl / ( 1 + ($carrierVat/100)), $precision);
-                }
-
-                $order_object->total_shipping = $order_object->total_shipping_tax_incl;
-
-                $order_object->conversion_rate = 1;
-                $order_object->id_shop = $context->shop->id;
-                $order_object->id_shop_group = $context->shop->id_shop_group;
-                $order_object->id_lang = $id_lang;
-                $order_object->secure_key = md5(uniqid(rand(), true));
-                $order_object->add();
-
-                if (!Validate::isLoadedObject($order_object)) {
-                    $this->logMessage('cronOrdersSync - Error create order for order: '.$channelOrderId);
-                    continue;
-                }
-                $order_object_id = $order_object->id;
-
-                //new 2018-01-15 add order_payment. Before orderhistory to prevent reset of current_state
-                $transaction_id = null;
-                $order_object->addOrderPayment($order_object->total_paid_tax_incl, $channelPaymentMethod, $transaction_id);
-
-
-                // Insert new Order detail list using cart for the current order
-                $id_order_state = Configuration::get('CHANNELENGINE_NEW_ORDER_STATE');
-                if (!empty($lines)) {
-                    $addressId = $order_object->{Configuration::get('PS_TAX_ADDRESS_TYPE')};
-                    foreach ($lines as $item) {
-                        $this->createOrderDetail($item, $order_object_id, $addressId, $funcOriginal);
+                    //get hardcoded carrier from config OR if not automatically found by cart.
+                    if (Configuration::get('CHANNELENGINE_CARRIER_AUTO') != '1' || !isset($id_carrier) || !$id_carrier) {
+                        $id_carrier = $this->getCarrierId(); //from config.
                     }
+                    $carrier = new Carrier($id_carrier);
+                    if (!Validate::isLoadedObject($carrier)) {
+                        $this->logMessage('cronOrdersSync - Carrier not found. Check module configuration.');
+                        return false;
+                    }
+
+                    $order_object = new Order();
+                    $order_object->id_address_delivery = $shippingAddress->id;
+                    $order_object->id_address_invoice = $billingAddress->id;
+                    $order_object->reference = 'ce-' . $channelOrderId;
+                    $order_object->id_cart = $id_cart;
+                    $order_object->id_currency = $id_currency;
+                    $order_object->id_customer = $id_customer;
+                    $order_object->id_carrier = $id_carrier;
+                    $order_object->payment = $channelPaymentMethod; // "ChannelEngine Order";
+                    $order_object->module = "channelengine";
+                    $order_object->valid = 1;
+
+                    $order_object->total_paid_tax_excl = (float)$order->{'get'.$funcOriginal.'TotalInclVat'}() - (float)$order->{'get'.$funcOriginal.'TotalVat'}();
+                    $order_object->total_paid_tax_incl = (float)$order->{'get'.$funcOriginal.'TotalInclVat'}();
+
+                    $order_object->total_paid = $order_object->total_paid_tax_incl;
+                    $order_object->total_paid_real = 0; // set by addOrderPayment.
+
+                    $order_object->total_products = (float)$order->{'get'.$funcOriginal.'SubTotalInclVat'}() - (float)$order->{'get'.$funcOriginal.'SubTotalVat'}();
+                    $order_object->total_products_wt = (float)$order->{'get'.$funcOriginal.'SubTotalInclVat'}();
+
+                    $discount = 0;
+                    $order_object->total_discounts_tax_excl = $discount;
+                    $order_object->total_discounts_tax_incl = $discount;
+                    $order_object->total_discounts = $order_object->total_discounts_tax_incl;
+
+                    $order_object->total_shipping_tax_incl = (float)$order->{'get'.$funcOriginal.'ShippingCostsInclVat'}();
+                    $order_object->total_shipping_tax_excl = (float)$order->{'get'.$funcOriginal.'ShippingCostsInclVat'}() - (float)$order->{'get'.$funcOriginal.'ShippingCostsVat'}();
+
+                    $carrierVat = $carrier->getTaxesRate($shippingAddress);
+                    if (is_numeric($carrierVat)) {
+                        $order_object->carrier_tax_rate = $carrierVat;
+                        $precision = (Currency::getCurrencyInstance((int)$order_object->id_currency)->decimals * _PS_PRICE_DISPLAY_PRECISION_);
+                        $order_object->total_shipping_tax_excl = Tools::ps_round($order_object->total_shipping_tax_incl / ( 1 + ($carrierVat/100)), $precision);
+                    }
+
+                    $order_object->total_shipping = $order_object->total_shipping_tax_incl;
+
+                    $order_object->conversion_rate = 1;
+                    $order_object->id_shop = $context->shop->id;
+                    $order_object->id_shop_group = $context->shop->id_shop_group;
+                    $order_object->id_lang = $id_lang;
+                    $order_object->secure_key = md5(uniqid(rand(), true));
+                    $order_object->add();
+
+                    if (!Validate::isLoadedObject($order_object)) {
+                        $this->logMessage('cronOrdersSync - Error create order for order: '.$channelOrderId);
+                        continue;
+                    }
+                    $order_object_id = $order_object->id;
+
+                    //new 2018-01-15 add order_payment. Before orderhistory to prevent reset of current_state
+                    $transaction_id = null;
+                    $order_object->addOrderPayment($order_object->total_paid_tax_incl, $channelPaymentMethod, $transaction_id);
+
+
+                    // Insert new Order detail list using cart for the current order
+                    $id_order_state = Configuration::get('CHANNELENGINE_NEW_ORDER_STATE');
+                    if (!empty($lines)) {
+                        $addressId = $order_object->{Configuration::get('PS_TAX_ADDRESS_TYPE')};
+                        foreach ($lines as $item) {
+                            $this->createOrderDetail($item, $order_object_id, $addressId, $funcOriginal);
+                        }
+                    }
+
+                    // Adding an entry in order_carrier table
+                    $order_carrier = new OrderCarrier();
+                    $order_carrier->id_order = (int) $order_object->id;
+
+                    $order_carrier->id_carrier = (int) $id_carrier;
+                    $order_carrier->weight = (float) $order_object->getTotalWeight();
+                    $order_carrier->shipping_cost_tax_excl = (float) $order_object->total_shipping_tax_excl;
+                    $order_carrier->shipping_cost_tax_incl = (float) $order_object->total_shipping_tax_incl;
+                    $order_carrier->add();
+
+                    //Add the order status history. Does NOT send out emails.
+                    $new_history = new OrderHistory();
+                    $new_history->id_order = (int)$order_object->id;
+                    $new_history->id_order_state = (int)$id_order_state;
+                    $new_history->add(); //updates the order !
+
+                    //reload order_object to get current_state changes
+                    $order_object = new Order($order_object_id);
+
+                    //create invoice / deliveryslip
+                    $new_os = new OrderState((int)$id_order_state, $order_object->id_lang);
+                    if ($new_os->invoice && !$order_object->invoice_number) {
+                        $use_existing_payment = false;
+                        $order_object->setInvoice($use_existing_payment);
+                    } elseif ($new_os->delivery && !$order->delivery_number) {
+                        $order_object->setDeliverySlip();
+                    }
+
+                    //set channelengine order info in order.
+                    Db::getInstance()->update('orders', array(
+                        'id_channelengine_order' => $channelOrderId,
+                        'channelengine_channel_order_no' => $order->getChannelOrderNo(),
+                        'channelengine_channel_name' => $order->getChannelName()
+                    ), 'id_order = ' . $order_object->id);
+
+                    $message = "ChannelEngine Order: #" . $channelOrderId . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
+
+                    Db::getInstance()->execute("INSERT INTO " . _DB_PREFIX_ . "message (`id_cart`, `id_customer`, `id_employee`, `id_order`, `message`, `private`, `date_add`) VALUES (0, 0, 0, $order_object->id, '$message', 1, NOW())");
                 }
 
-                // Adding an entry in order_carrier table
-                $order_carrier = new OrderCarrier();
-                $order_carrier->id_order = (int) $order_object->id;
+                //Send confirmation to channelengine: order is created.
+                $modelData = array(
+                    'merchantOrderNo' => $order_object_id,
+                    'orderId' => $channelOrderId
+                );
+                $orderAcknowledgementModel = new \ChannelEngine\Merchant\ApiClient\Model\OrderAcknowledgement($modelData);
 
-                $order_carrier->id_carrier = (int) $id_carrier;
-                $order_carrier->weight = (float) $order_object->getTotalWeight();
-                $order_carrier->shipping_cost_tax_excl = (float) $order_object->total_shipping_tax_excl;
-                $order_carrier->shipping_cost_tax_incl = (float) $order_object->total_shipping_tax_incl;
-                $order_carrier->add();
-
-                //Add the order status history. Does NOT send out emails.
-                $new_history = new OrderHistory();
-                $new_history->id_order = (int)$order_object->id;
-                $new_history->id_order_state = (int)$id_order_state;
-                $new_history->add(); //updates the order !
-
-                //reload order_object to get current_state changes
-                $order_object = new Order($order_object_id);
-
-                //create invoice / deliveryslip
-                $new_os = new OrderState((int)$id_order_state, $order_object->id_lang);
-                if ($new_os->invoice && !$order_object->invoice_number) {
-                    $use_existing_payment = false;
-                    $order_object->setInvoice($use_existing_payment);
-                } elseif ($new_os->delivery && !$order->delivery_number) {
-                    $order_object->setDeliverySlip();
+                try {
+                    $result = $orderApi->orderAcknowledge($orderAcknowledgementModel);
+                } catch (Exception $e) {
+                    $serverLog = print_r($e->getResponseObject(), true);
+                    $this->logMessage('cronOrdersSync OrderAcknowledgement: '. $serverLog . ' | ' . $e->getMessage(), 3, $e->getCode());
+                    $this->pr($e->getMessage());
+                    return;
                 }
 
-                //set channelengine order info in order.
-                Db::getInstance()->update('orders', array(
-                    'id_channelengine_order' => $channelOrderId,
-                    'channelengine_channel_order_no' => $order->getChannelOrderNo(),
-                    'channelengine_channel_name' => $order->getChannelName()
-                ), 'id_order = ' . $order_object->id);
-
-                $message = "ChannelEngine Order: #" . $channelOrderId . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
-
-                Db::getInstance()->execute("INSERT INTO " . _DB_PREFIX_ . "message (`id_cart`, `id_customer`, `id_employee`, `id_order`, `message`, `private`, `date_add`) VALUES (0, 0, 0, $order_object->id, '$message', 1, NOW())");
+                //trigger hook (normally triggered in: public function changeIdOrderState)
+                Hook::exec('actionOrderStatusUpdate', array('newOrderStatus' => $new_os, 'id_order' => (int)$order_object->id), null, false, true, false, $order_object->id_shop);
             }
-
-            //Send confirmation to channelengine: order is created.
-            $modelData = array(
-                'merchantOrderNo' => $order_object_id,
-                'orderId' => $channelOrderId
-            );
-            $orderAcknowledgementModel = new \ChannelEngine\Merchant\ApiClient\Model\OrderAcknowledgement($modelData);
-
-            try {
-                $result = $orderApi->orderAcknowledge($orderAcknowledgementModel);
-            } catch (Exception $e) {
-                $serverLog = print_r($e->getResponseObject(),true);
-                $this->logMessage('cronOrdersSync OrderAcknowledgement: '. $serverLog . ' | ' . $e->getMessage(), 3 , $e->getCode());
-                $this->pr($e->getMessage());
-                return;
+            catch(Exception $e)
+            {
+                $this->logMessage('Failed to save ChannelEngine order. ' . $e->getMessage(), 3, $e->getCode());
             }
-
-            //trigger hook (normally triggered in: public function changeIdOrderState)
-            Hook::exec('actionOrderStatusUpdate', array('newOrderStatus' => $new_os, 'id_order' => (int)$order_object->id), null, false, true, false, $order_object->id_shop);
-
         }
     }
 
