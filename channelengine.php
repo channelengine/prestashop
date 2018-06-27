@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.2';
+        $this->version = '2.2.3';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1257,19 +1257,21 @@ ce('track:click');
         $funcOriginal = 'Original'; //use values from original currency. Set to false to get converted to EUR currency.
         $this->getApiConfig();
         $orderApi = new \ChannelEngine\Merchant\ApiClient\Api\OrderApi(null, $this->apiConfig);
+
         try {
             $orders = $orderApi->orderGetNew()->getContent();
         } catch (Exception $e) {
-            $serverLog = print_r($e->getResponseObject(),true);
+            $serverLog = print_r($e->getResponseObject(), true);
             $this->logMessage('cronOrdersSync getContent: '. $serverLog . ' | ' . $e->getMessage(), 3 , $e->getCode());
             $this->pr($e->getMessage());
             return;
         }
 
-
         $context = Context::getContext();
+        $langId = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
 
         foreach ($orders as $order) {
+
             try {
                 $channelOrderId = $order->getId();
                 $channelPaymentMethod = 'ChannelEngine Payment'; //$order->getPaymentMethod(); not always set
@@ -1298,6 +1300,8 @@ ce('track:click');
                             continue; //next order
                         }
                     }
+
+                    $products = $this->getProductsForOrder($order);
 
                     $id_currency = Currency::getIdByIsoCode($currencyCode); //check if exists?
                     $customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
@@ -1340,7 +1344,7 @@ ce('track:click');
                         if (!empty($lines)) {
                             $addressId = $cart->id_address_delivery;
                             foreach ($lines as $item) {
-                                $this->createCartDetail($item, $cart->id, $addressId, $funcOriginal);
+                                $this->createCartDetail($products, $item, $cart->id, $addressId, $funcOriginal);
                             }
                         }
 
@@ -1419,6 +1423,16 @@ ce('track:click');
                         $this->logMessage('cronOrdersSync - Error create order for order: '.$channelOrderId);
                         continue;
                     }
+
+                    //set channelengine order info in order.
+                    Db::getInstance()->update('orders', array(
+                        'id_channelengine_order' => $channelOrderId,
+                        'channelengine_channel_order_no' => $order->getChannelOrderNo(),
+                        'channelengine_channel_name' => $order->getChannelName()
+                    ), 'id_order = ' . $order_object->id);
+                    $message = "ChannelEngine Order: #" . $channelOrderId . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
+                    Db::getInstance()->execute("INSERT INTO " . _DB_PREFIX_ . "message (`id_cart`, `id_customer`, `id_employee`, `id_order`, `message`, `private`, `date_add`) VALUES (0, 0, 0, $order_object->id, '$message', 1, NOW())");
+
                     $order_object_id = $order_object->id;
 
                     //new 2018-01-15 add order_payment. Before orderhistory to prevent reset of current_state
@@ -1431,7 +1445,7 @@ ce('track:click');
                     if (!empty($lines)) {
                         $addressId = $order_object->{Configuration::get('PS_TAX_ADDRESS_TYPE')};
                         foreach ($lines as $item) {
-                            $this->createOrderDetail($item, $order_object_id, $addressId, $funcOriginal);
+                            $this->createOrderDetail($products, $item, $order_object_id, $addressId, $funcOriginal);
                         }
                     }
 
@@ -1462,17 +1476,9 @@ ce('track:click');
                     } elseif ($new_os->delivery && !$order->delivery_number) {
                         $order_object->setDeliverySlip();
                     }
-
-                    //set channelengine order info in order.
-                    Db::getInstance()->update('orders', array(
-                        'id_channelengine_order' => $channelOrderId,
-                        'channelengine_channel_order_no' => $order->getChannelOrderNo(),
-                        'channelengine_channel_name' => $order->getChannelName()
-                    ), 'id_order = ' . $order_object->id);
-
-                    $message = "ChannelEngine Order: #" . $channelOrderId . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
-
-                    Db::getInstance()->execute("INSERT INTO " . _DB_PREFIX_ . "message (`id_cart`, `id_customer`, `id_employee`, `id_order`, `message`, `private`, `date_add`) VALUES (0, 0, 0, $order_object->id, '$message', 1, NOW())");
+                    
+                    //trigger hook (normally triggered in: public function changeIdOrderState)
+                    Hook::exec('actionOrderStatusUpdate', array('newOrderStatus' => $new_os, 'id_order' => (int)$order_object->id), null, false, true, false, $order_object->id_shop);
                 }
 
                 //Send confirmation to channelengine: order is created.
@@ -1488,17 +1494,15 @@ ce('track:click');
                     $serverLog = print_r($e->getResponseObject(), true);
                     $this->logMessage('cronOrdersSync OrderAcknowledgement: '. $serverLog . ' | ' . $e->getMessage(), 3, $e->getCode());
                     $this->pr($e->getMessage());
-                    return;
                 }
-
-                //trigger hook (normally triggered in: public function changeIdOrderState)
-                Hook::exec('actionOrderStatusUpdate', array('newOrderStatus' => $new_os, 'id_order' => (int)$order_object->id), null, false, true, false, $order_object->id_shop);
             }
             catch(Exception $e)
             {
-                $this->logMessage('Failed to save ChannelEngine order. ' . $e->getMessage(), 3, $e->getCode());
+                $this->logMessage('Failed to save ChannelEngine order ce-' . $channelOrderId . '. ' . $e->getMessage(), 3, $e->getCode());
+                $this->pr($e->getMessage());
             }
         }
+
     }
 
     function createPrestaShopAddress($customerId, $ceAddress, $ceOrder) {
@@ -1852,42 +1856,16 @@ ce('track:click');
     /**
      * @param $item Channelengine orderline
      */
-    protected function createOrderDetail(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $orderId, $addressId, $funcOriginal = 'Original')
+    protected function createOrderDetail($productLookup, \ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $orderId, $addressId, $funcOriginal = 'Original')
     {
-        $productId = $item->getMerchantProductNo();
-        $productAttributeId = 0;
-        if (strpos($item->getMerchantProductNo(), '-') !== false) {
-            $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
-            $productId = $getMerchantProductNo[0];
-            $productAttributeId = $getMerchantProductNo[1];
-        }
-
+        $product = $productLookup[$item->getMerchantProductNo()];
         $context = Context::getContext();
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
-
-        $product = new Product($productId, false, $id_lang);
-        $productReference = $product->reference;
-        $productName = $product->name;
-
-        if ($productAttributeId) {
-            $attributes = Product::getAttributesParams($productId, $productAttributeId);
-            $nameprefix = ' - ';
-            foreach ($attributes as $attribute) {
-                $productName .= $nameprefix . $attribute['group'].' : '.$attribute['name'];
-                $nameprefix = ', ';
-            }
-            $combination = new Combination($productAttributeId);
-
-            if(!empty($combination->reference)) {
-                $productReference = $combination->reference;
-            }
-        }
 
         //get advanced stock management warehouse info
         $id_warehouse = 0;
         $stock_management_active = Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT');
-        if ($stock_management_active && (int)$product->advanced_stock_management == 1) {
-            $warehouses = Warehouse::getProductWarehouseList($productId, $productAttributeId, $context->shop->id);
+        if ($stock_management_active && (int)$product['advanced_stock_management'] == 1) {
+            $warehouses = Warehouse::getProductWarehouseList($product['id'], $product['attribute_id'], $context->shop->id);
             foreach ($warehouses as $warehouse) {
                 $id_warehouse = $warehouse['id_warehouse'];
                 break;
@@ -1896,11 +1874,12 @@ ce('track:click');
 
         $orderDetail = new OrderDetail();
         $orderDetail->id_order = $orderId;
-        $orderDetail->product_id = $productId;
-        $orderDetail->product_attribute_id = $productAttributeId;
+        $orderDetail->product_id = $product['id'];
+        $orderDetail->product_attribute_id = $product['attribute_id'];
         $orderDetail->id_warehouse = $id_warehouse;
         $orderDetail->id_shop = $context->shop->id;
-        $orderDetail->product_name = $productName;
+        $orderDetail->product_name = $product['name'];
+        $orderDetail->product_reference = $product['reference'];
         $orderDetail->product_quantity = $item->getQuantity();
 
         //Do not get tax from product. Can be different from calculated tax
@@ -1910,7 +1889,7 @@ ce('track:click');
         $tax_rate = round(( $unitVat * 100 / $unitExclVat) * 2) / 2;
 
         $orderDetail->tax_rate = $tax_rate;
-        $orderDetail->product_reference = $productReference;
+        
         $orderDetail->unit_price_tax_incl = (float)$item->{'get'.$funcOriginal.'UnitPriceInclVat'}();
         //recalc price excl tax to get enough digit because data in $item is only 2 digits
         $orderDetail->unit_price_tax_excl = Tools::ps_round($orderDetail->unit_price_tax_incl / (1 + ($tax_rate/100)), _PS_PRICE_COMPUTE_PRECISION_);
@@ -1919,7 +1898,7 @@ ce('track:click');
         $orderDetail->total_price_tax_incl = $orderDetail->unit_price_tax_incl * $orderDetail->product_quantity;
         $orderDetail->total_price_tax_excl = Tools::ps_round($orderDetail->total_price_tax_incl / (1 + ($tax_rate/100)), _PS_PRICE_COMPUTE_PRECISION_);
 
-        $orderDetail->original_product_price = $product->price;
+        $orderDetail->original_product_price = $product['original_price'];
         //$orderDetail->original_wholesale_price = $product->wholesale_price;
         //$orderDetail->product_quantity_in_stock = ?? //future set correct stock info
         //$orderDetail->product_ean13
@@ -1930,42 +1909,62 @@ ce('track:click');
     /**
      * @param $item Channelengine orderline
      */
-    protected function createCartDetail(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $cartId, $addressId, $funcOriginal = 'Original')
+    protected function createCartDetail($productLookup, \ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $cartId, $addressId, $funcOriginal = 'Original')
     {
-        $productId = $item->getmerchantProductNo();
-        $productAttributeId = 0;
-        if (strpos($item->getmerchantProductNo(), '-') !== false) {
-            $getMerchantProductNo = explode("-", $item->getMerchantProductNo());
-            $productId = $getMerchantProductNo[0];
-            $productAttributeId = $getMerchantProductNo[1];
-        }
-
-        $context = Context::getContext();
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
-
-        $product = new Product($productId, false, $id_lang);
-
-        $productName = $product->name;
-        if ($productAttributeId) {
-            $attributes = Product::getAttributesParams($productId, $productAttributeId);
-            $nameprefix = ' - ';
-            foreach ($attributes as $attribute) {
-                $productName .= $nameprefix . $attribute['group'].' : '.$attribute['name'];
-                $nameprefix = ', ';
-            }
-        }
+        $product = $productLookup[$item->getMerchantProductNo()];
 
         $result_add = Db::getInstance()->insert('cart_product', array(
-            'id_product' =>            (int)$productId,
-            'id_product_attribute' =>    (int)$productAttributeId,
-            'id_cart' =>                (int)$cartId,
-            'id_address_delivery' =>    (int)$addressId,
-            'id_shop' =>                $context->shop->id,
-            'quantity' =>                $item->getQuantity(),
-            'date_add' =>                date('Y-m-d H:i:s')
+            'id_product' => (int)$product['id'],
+            'id_product_attribute' => (int)$product['attribute_id'],
+            'id_cart' => (int)$cartId,
+            'id_address_delivery' => (int)$addressId,
+            'id_shop' => $context->shop->id,
+            'quantity' => $item->getQuantity(),
+            'date_add' => date('Y-m-d H:i:s')
         ));
 
         return $result_add;
+    }
 
+    private function getProductsForOrder(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderResponse $order) {
+        $products = [];
+        $context = Context::getContext();
+        $langId = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+
+        foreach($order->getLines() as $orderLine) {
+
+            // split the MerchantProductNo by '-' to get the product and attribute IDs
+            $productIdParts = explode("-", $orderLine->getMerchantProductNo());
+            $partCount = count($productIdParts);
+            if($partCount < 1 || $partCount > 2) throw new Exception("Invalid product ID " . $orderLine->getMerchantProductNo());
+
+            $productId = $productIdParts[0];
+            $productAttributeId = null;
+            $product = new Product($productId, false, $langId);
+
+            if (!Validate::isLoadedObject($product)) throw new Exception('No product exists with ID ' . $orderLine->getMerchantProductNo());
+
+            $productName = $product->name;
+            if (isset($productIdParts[1])) {
+                $productAttributeId = $productIdParts[1];
+                $attributes = Product::getAttributesParams($productId, $productAttributeId);
+                $nameprefix = ' - ';
+                foreach ($attributes as $attribute) {
+                    $productName .= $nameprefix . $attribute['group'].': '.$attribute['name'];
+                    $nameprefix = ', ';
+                }
+            }
+
+            $products[$orderLine->getMerchantProductNo()] = array(
+                'name' => $productName,
+                'id' => $productId,
+                'attribute_id' => $productAttributeId,
+                'reference' => $product->reference,
+                'advanced_stock_management' => $product->advanced_stock_management,
+                'original_price' => $product->price,
+            );
+        }
+
+        return $products;
     }
 }
