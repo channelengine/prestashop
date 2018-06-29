@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.3';
+        $this->version = '2.2.4';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -62,7 +62,7 @@ class Channelengine extends Module {
         require_once( dirname(__FILE__) . "/vendor/autoload.php");
     }
 
-    private function getApiConfig() {
+    protected function getApiConfig() {
         if (!$this->apiConfig) {
             $this->apiConfig = \ChannelEngine\Merchant\ApiClient\Configuration::getDefaultConfiguration();
             $this->apiConfig->setHost('https://'.Configuration::get('CHANNELENGINE_ACCOUNT_NAME').'.channelengine.net/api');
@@ -133,7 +133,7 @@ class Channelengine extends Module {
         return true;
     }
 
-    private function installDb()
+    protected function installDb()
     {
         $result = true;
         $sql = array();
@@ -163,7 +163,7 @@ class Channelengine extends Module {
         return $result;
     }
 
-    private function unInstallDb()
+    protected function unInstallDb()
     {
         $result = true;
         $sql = array();
@@ -594,7 +594,7 @@ ce('track:click');
         return $ret_text;
     }
 
-    private function getOffers($updatedSince = 0, $page = null, $productId = null) {
+    protected function getOffers($updatedSince = 0, $page = null, $productId = null) {
         $ctx = Context::getContext();
 
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
@@ -640,7 +640,7 @@ ce('track:click');
         return $rq;
     }
 
-    private function getProducts($updatedSince = 0, $page = null, $productId = null) {
+    protected function getProducts($updatedSince = 0, $page = null, $productId = null) {
         $ctx = Context::getContext();
 
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
@@ -699,7 +699,7 @@ ce('track:click');
         return $rq;
     }
 
-    public function getAttributeCombinations($id_product = FALSE) {
+    protected function getAttributeCombinations($id_product = FALSE) {
 
         $ctx = Context::getContext();
 
@@ -772,7 +772,7 @@ ce('track:click');
         return $attributes;
     }
 
-    private function getCategories() {
+    protected function getCategories() {
         $id_lang = Configuration::get('CHANNELENGINE_SYNC_LANG');
         $sql = 'SELECT c.`id_category`, c.`id_parent`, cl.`name` '
             . 'FROM `' . _DB_PREFIX_ . 'category` c '
@@ -806,7 +806,7 @@ ce('track:click');
     /**
      * - Fetch and convert prestashop products to CE products
      */
-    public function getChannelEngineProducts($lastUpdatedTimestamp, $page = null, $productId = null) {
+    protected function getChannelEngineProducts($lastUpdatedTimestamp, $page = null, $productId = null) {
         $prestaProducts = $this->getProducts($lastUpdatedTimestamp, $page, $productId);
         if (!count($prestaProducts)) {
             return array();
@@ -853,7 +853,7 @@ ce('track:click');
         }
     }
 
-    public function getChannelEngineOffers($lastUpdatedTimestamp, $page = null, $productId = null) {
+    protected function getChannelEngineOffers($lastUpdatedTimestamp, $page = null, $productId = null) {
         $offers = $this->getOffers($lastUpdatedTimestamp, $page, $productId);
         if (!count($offers)) {
             return array();
@@ -895,7 +895,7 @@ ce('track:click');
         }
     }
 
-    function createOfferObject($product, $variant) {
+    protected function createOfferObject($product, $variant) {
         $id = $product['id_product'];
         $offer = new \ChannelEngine\Merchant\ApiClient\Model\MerchantStockPriceUpdateRequest();
 
@@ -930,7 +930,7 @@ ce('track:click');
         return $offer;
     }
 
-    function createProductObject($prestaProduct, $variant, $categories, $extradata, $images) {
+    protected function createProductObject($prestaProduct, $variant, $categories, $extradata, $images) {
         $id = $prestaProduct['id_product'];
         $product = new \ChannelEngine\Merchant\ApiClient\Model\MerchantProductRequest();
         $product->setName($prestaProduct['name']);
@@ -1040,7 +1040,7 @@ ce('track:click');
         return $product;
     }
 
-    private function createExtraDataItem($key, $value) {
+    protected function createExtraDataItem($key, $value) {
         $condition = new \ChannelEngine\Merchant\ApiClient\Model\ExtraDataItem();
         $condition->setKey($key);
         $condition->setIsPublic(false);
@@ -1049,7 +1049,7 @@ ce('track:click');
         return $condition;
     }
 
-    private function setSpecs($product, $specs, $isVariant) {
+    protected function setSpecs($product, $specs, $isVariant) {
         $nameKey = $isVariant ? 'group_name' : 'name';
         $valueKey = $isVariant ? 'attribute_name' : 'value';
 
@@ -1117,7 +1117,7 @@ ce('track:click');
         $product->setExtraData($ed);
     }
 
-    private function extractGtin($product) {
+    protected function extractGtin($product) {
         if (!empty($product['ean13']) && $this->validateGtin($product['ean13'])) {
             return $product['ean13'];
         } else if (!empty($product['isbn']) && $this->validateGtin($product['isbn'])) {
@@ -1129,7 +1129,7 @@ ce('track:click');
         }
     }
 
-    private function getExtraData($productId = FALSE) {
+    protected function getExtraData($productId = FALSE) {
 
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
         $features = array();
@@ -1172,7 +1172,7 @@ ce('track:click');
         $sql = 'SELECT i.id_image, i.id_product, i.position, i.cover '
             . 'FROM `' . _DB_PREFIX_ . 'image` i '
             . 'INNER JOIN `' . _DB_PREFIX_ . 'image_shop` i_s ON i_s.id_image = i.id_image AND i_s.id_shop = '  . $id_shop
-            . (($productId) ?  'WHERE i.id_product = ' . (int)$productId : '') . ' '
+            . (($productId) ?  ' WHERE i.id_product = ' . (int)$productId : '') . ' '
             . 'ORDER BY i.id_product ASC, i.cover DESC, i.position ASC ';
 
         $res = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
@@ -1191,7 +1191,7 @@ ce('track:click');
         return $images;
     }
 
-    private function getAttributeCombinationImages($productId = FALSE) {
+    protected function getAttributeCombinationImages($productId = FALSE) {
 
         $ctx = Context::getContext();
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
@@ -1222,12 +1222,12 @@ ce('track:click');
         return $images;
     }
 
-    private function truncate($string, $length) {
+    protected function truncate($string, $length) {
         if(strlen($string) <= $length) return $string;
         return substr($string, 0 , $length);
     }
 
-    private function validateGtin($barcode) {
+    protected function validateGtin($barcode) {
         // check to see if barcode is 13 digits long
         if (!preg_match("/^[0-9]+$/", $barcode)) return false;
 
@@ -1245,7 +1245,7 @@ ce('track:click');
         return $checkDigit == intval($barcode[13]);
     }
 
-    function cronOrdersSync() {
+    public function cronOrdersSync() {
         $this->loadVendorFiles();
 
         if(!Configuration::get('PS_GUEST_CHECKOUT_ENABLED')) {
@@ -1505,7 +1505,7 @@ ce('track:click');
 
     }
 
-    function createPrestaShopAddress($customerId, $ceAddress, $ceOrder) {
+    protected function createPrestaShopAddress($customerId, $ceAddress, $ceOrder) {
         $address = new Address();
 
         $address->firstname = $ceAddress->getFirstName();
@@ -1533,7 +1533,7 @@ ce('track:click');
      * @param type $email
      * @return type
      */
-    function createPrestaShopCustomer($billingAddress, $email) {
+    protected function createPrestaShopCustomer($billingAddress, $email) {
         $customer_object = new Customer();
         $customer_object->firstname = $billingAddress->getfirstName();
         $customer_object->lastname = $billingAddress->getLastName();
@@ -1544,7 +1544,7 @@ ce('track:click');
         return $customer_object;
     }
 
-    private function cleanTag($tag) {
+    protected function function cleanTag($tag) {
         $tag = preg_replace("/[^A-Za-z0-9]/", '_', $tag);
         if(is_numeric(substr($tag, 0, 1))) $tag = '_' . $tag;
         return $tag;
@@ -1553,7 +1553,7 @@ ce('track:click');
     * Function to handle request
     */
 
-    function handleRequest() {
+    public function handleRequest() {
         $type = isset($_GET['type']) ? $_GET['type'] : '';
         switch ($type) {
             case 'orders':
@@ -1585,7 +1585,7 @@ ce('track:click');
         }
     }
 
-    private function renderFeed() {
+    protected function renderFeed() {
         $this->loadVendorFiles();
         require_once( dirname(__FILE__) . "/classes/SimpleXmlExtended.php");
 
@@ -1620,7 +1620,7 @@ ce('track:click');
      * @param int $productVatRate
      * @return string
      */
-    private function getVatRateType($productVatRate = null) {
+    protected function getVatRateType($productVatRate = null) {
         $type = \ChannelEngine\Merchant\ApiClient\Model\MerchantProductRequest::VAT_RATE_TYPE_STANDARD;
         if ($productVatRate == null) {
             return $type;
@@ -1638,7 +1638,7 @@ ce('track:click');
      * @return array
      * Get all shipped orders not yet reported to ChannelEngine
      */
-    private function getShippedOrders() {
+    protected function getShippedOrders() {
         $orders = array();
 
         $query = 'SELECT id_order FROM ' . _DB_PREFIX_ . 'orders WHERE id_channelengine_order > 0 AND id_channelengine_shipment = 0';
@@ -1655,7 +1655,7 @@ ce('track:click');
         return $orders;
     }
 
-    private function putPrestaOrderShipmentToChannelEngine($orders)
+    protected function putPrestaOrderShipmentToChannelEngine($orders)
     {
         $this->getApiConfig();
         $shipmentApi = new \ChannelEngine\Merchant\ApiClient\Api\ShipmentApi(null, $this->apiConfig);
@@ -1726,7 +1726,7 @@ ce('track:click');
         }
     }
 
-    private function getCreditOrders() {
+    protected function getCreditOrders() {
         $order_slip_ids = array();
 
         $query = 'SELECT os.id_order_slip FROM ' . _DB_PREFIX_ . 'order_slip os
@@ -1744,7 +1744,7 @@ ce('track:click');
      * @param $order_slip_ids
      * Send order credit info (returned products) to ChannelEngine
      */
-    private function putPrestaCreditsToChannelEngine($order_slip_ids)
+    protected function putPrestaCreditsToChannelEngine($order_slip_ids)
     {
 
         $this->getApiConfig();
@@ -1808,7 +1808,8 @@ ce('track:click');
 
 
     }
-    private function getCarrierId()
+
+    protected function getCarrierId()
     {
         $id_carrier = Configuration::get('CHANNELENGINE_CARRIER');
         $carrier = new Carrier($id_carrier);
@@ -1830,7 +1831,7 @@ ce('track:click');
      * @param int    $severity (1-5)
      * @param int    $error_code ()
      */
-    private function logMessage($msg = '', $severity = 3, $error_code = 0)
+    protected function logMessage($msg = '', $severity = 3, $error_code = 0)
     {
         //log to prestashop log
         $logToPS = true; //todo future: add to configuration of module
@@ -1847,7 +1848,7 @@ ce('track:click');
         }
     }
 
-    private function pr($data) {
+    protected function pr($data) {
         echo "<pre>";
         print_r($data);
         echo "</pre>";
@@ -1926,7 +1927,7 @@ ce('track:click');
         return $result_add;
     }
 
-    private function getProductsForOrder(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderResponse $order) {
+    protected function getProductsForOrder(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderResponse $order) {
         $products = [];
         $context = Context::getContext();
         $langId = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
