@@ -1161,7 +1161,7 @@ ce('track:click');
         return $features;
     }
 
-    private function getImages($productId = FALSE) {
+    protected function getImages($productId = FALSE) {
 
         $ctx = Context::getContext();
         $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
