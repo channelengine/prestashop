@@ -1544,7 +1544,7 @@ ce('track:click');
         return $customer_object;
     }
 
-    protected function function cleanTag($tag) {
+    protected function cleanTag($tag) {
         $tag = preg_replace("/[^A-Za-z0-9]/", '_', $tag);
         if(is_numeric(substr($tag, 0, 1))) $tag = '_' . $tag;
         return $tag;
