@@ -597,8 +597,8 @@ ce('track:click');
     protected function getOffers($updatedSince = 0, $page = null, $productId = null) {
         $ctx = Context::getContext();
 
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
-        $id_shop = (int) $ctx->shop->id;
+//        $id_lang = $this->getIdLang();
+//        $id_shop = (int) $ctx->shop->id;
 
         $sql = 'SELECT p.*, product_shop.*, s.quantity ,'
             . '( '
@@ -643,7 +643,7 @@ ce('track:click');
     protected function getProducts($updatedSince = 0, $page = null, $productId = null) {
         $ctx = Context::getContext();
 
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_lang = $this->getIdLang();
         $id_shop = (int) $ctx->shop->id;
 
         $sql = 'SELECT p.*, product_shop.*, pl.*, m.name AS manufacturer_name, s.quantity ,'
@@ -703,7 +703,7 @@ ce('track:click');
 
         $ctx = Context::getContext();
 
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_lang = $this->getIdLang();
         $id_shop = (int) $ctx->shop->id;
 
         if (!Combination::isFeatureActive()) {
@@ -773,7 +773,7 @@ ce('track:click');
     }
 
     protected function getCategories() {
-        $id_lang = Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_lang = $this->getIdLang();
         $sql = 'SELECT c.`id_category`, c.`id_parent`, cl.`name` '
             . 'FROM `' . _DB_PREFIX_ . 'category` c '
             . Shop::addSqlAssociation('category', 'c') . ' '
@@ -978,7 +978,11 @@ ce('track:click');
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
             $product->setParentMerchantProductNo($id);
             $product->setStock($variant['quantity']);
-            $product->setPurchasePrice(round($variant['wholesale_price'], 2));
+            if ($variant['wholesale_price'] == 0) {
+                $product->setPurchasePrice(round($prestaProduct['wholesale_price'], 2));
+            } else {
+                $product->setPurchasePrice(round($variant['wholesale_price'], 2));
+            }
             $product->setEan($this->extractGtin($variant));
             $minQty->setValue($variant['minimal_quantity']);
             $imageLookupId = $variant['id_product_attribute'];
@@ -1131,10 +1135,10 @@ ce('track:click');
 
     protected function getExtraData($productId = FALSE) {
 
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $id_lang = $this->getIdLang();
         $features = array();
 
-        if (!Combination::isFeatureActive()) return $features;
+        if (!Feature::isFeatureActive()) return $features;
 
         $sql = 'SELECT fl.name, fp.id_product, fvl.value '
             . 'FROM `' . _DB_PREFIX_ . 'feature_value_lang` fvl '
@@ -1164,7 +1168,7 @@ ce('track:click');
     protected function getImages($productId = FALSE) {
 
         $ctx = Context::getContext();
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+//        $id_lang = $this->getIdLang();
         $id_shop = (int) $ctx->shop->id;
 
         $images = array();
@@ -1194,7 +1198,7 @@ ce('track:click');
     protected function getAttributeCombinationImages($productId = FALSE) {
 
         $ctx = Context::getContext();
-        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+//        $id_lang = $this->getIdLang();
         $id_shop = (int) $ctx->shop->id;
 
         $images = array();
@@ -1268,7 +1272,7 @@ ce('track:click');
         }
 
         $context = Context::getContext();
-        $langId = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+//        $langId = $this->getIdLang();
 
         foreach ($orders as $order) {
 
@@ -1316,7 +1320,7 @@ ce('track:click');
 
                     $lines = $order->getLines();
 
-                    $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+                    $id_lang = $this->getIdLang();
                     $id_cart = 0;
 
                     //create cart to get carrier. Only if auto carrier is set in module.
@@ -1437,7 +1441,7 @@ ce('track:click');
 
                     //new 2018-01-15 add order_payment. Before orderhistory to prevent reset of current_state
                     $transaction_id = null;
-                    $order_object->addOrderPayment($order_object->total_paid_tax_incl, $channelPaymentMethod, $transaction_id);
+                    $payment_created = $order_object->addOrderPayment($order_object->total_paid_tax_incl, $channelPaymentMethod, $transaction_id);
 
 
                     // Insert new Order detail list using cart for the current order
@@ -1445,7 +1449,7 @@ ce('track:click');
                     if (!empty($lines)) {
                         $addressId = $order_object->{Configuration::get('PS_TAX_ADDRESS_TYPE')};
                         foreach ($lines as $item) {
-                            $this->createOrderDetail($products, $item, $order_object_id, $addressId, $funcOriginal);
+                            $this->createOrderDetail($products, $item, $order_object_id, $addressId, $funcOriginal, $id_order_state);
                         }
                     }
 
@@ -1471,7 +1475,7 @@ ce('track:click');
                     //create invoice / deliveryslip
                     $new_os = new OrderState((int)$id_order_state, $order_object->id_lang);
                     if ($new_os->invoice && !$order_object->invoice_number) {
-                        $use_existing_payment = false;
+                        $use_existing_payment = $payment_created ? true: false; //to force adding order_invoice_payment record.
                         $order_object->setInvoice($use_existing_payment);
                     } elseif ($new_os->delivery && !$order->delivery_number) {
                         $order_object->setDeliverySlip();
@@ -1857,7 +1861,7 @@ ce('track:click');
     /**
      * @param $item Channelengine orderline
      */
-    protected function createOrderDetail($productLookup, \ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $orderId, $addressId, $funcOriginal = 'Original')
+    protected function createOrderDetail($productLookup, \ChannelEngine\Merchant\ApiClient\Model\MerchantOrderLineResponse $item, $orderId, $addressId, $funcOriginal = 'Original', $id_order_state)
     {
         $product = $productLookup[$item->getMerchantProductNo()];
         $context = Context::getContext();
@@ -1882,6 +1886,14 @@ ce('track:click');
         $orderDetail->product_name = $product['name'];
         $orderDetail->product_reference = $product['reference'];
         $orderDetail->product_quantity = $item->getQuantity();
+        $product['cart_quantity'] = $item->getQuantity(); //for checkProductStock
+        //stock_quantity -> no needed yet
+//      $product['stock_quantity'] = StockManager::getStockByCarrier((int)$product['id_product'], (int)$product['id_product_attribute'], $delivery);
+
+
+        $product_quantity = (int)Product::getQuantity($orderDetail->product_id, $orderDetail->product_attribute_id);
+        $orderDetail->product_quantity_in_stock = ($product_quantity - (int)$product['cart_quantity'] < 0) ?
+                    $product_quantity : (int)$product['cart_quantity'];
 
         //Do not get tax from product. Can be different from calculated tax
         //Calculate tax. Round to nearest half 20.9->21 20.3->20.5
@@ -1903,6 +1915,8 @@ ce('track:click');
         //$orderDetail->original_wholesale_price = $product->wholesale_price;
         //$orderDetail->product_quantity_in_stock = ?? //future set correct stock info
         //$orderDetail->product_ean13
+
+        $this->checkProductStock($product, $id_order_state);
 
         return $orderDetail->add();
     }
@@ -1930,7 +1944,7 @@ ce('track:click');
     protected function getProductsForOrder(\ChannelEngine\Merchant\ApiClient\Model\MerchantOrderResponse $order) {
         $products = [];
         $context = Context::getContext();
-        $langId = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+        $langId = $this->getIdLang();
 
         foreach($order->getLines() as $orderLine) {
 
@@ -1968,4 +1982,43 @@ ce('track:click');
 
         return $products;
     }
+
+    private function getIdLang() {
+        $id_lang = (int)Configuration::get('CHANNELENGINE_SYNC_LANG');
+
+        if ($iso = \Tools::getValue('lang')) {
+            if ($idLangFromIso = \Language::getIdByIso($iso)) {
+                $id_lang = $idLangFromIso;
+            }
+        }
+
+        return (int)$id_lang;
+    }
+
+    /**
+     * @param $product
+     * @param $id_order_state
+     * Copied from orderDetail class, because protected
+     */
+
+    protected function checkProductStock($product, $id_order_state)
+        {
+            if ($id_order_state != Configuration::get('PS_OS_CANCELED') && $id_order_state != Configuration::get('PS_OS_ERROR')) {
+                $update_quantity = true;
+                if (!StockAvailable::dependsOnStock($product['id'])) {
+                    $update_quantity = StockAvailable::updateQuantity($product['id'], $product['attribute_id'], -(int)$product['cart_quantity']);
+                }
+
+                //stock_quantity is unknown at this moment.
+//                if ($update_quantity) {
+//                    $product['stock_quantity'] -= $product['cart_quantity'];
+//                }
+//
+//                if ($product['stock_quantity'] < 0 && Configuration::get('PS_STOCK_MANAGEMENT')) {
+//                    $this->outOfStock = true;
+//                }
+//                Product::updateDefaultAttribute($product['id_product']);
+                Product::updateDefaultAttribute($product['id']);
+            }
+        }
 }
