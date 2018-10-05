@@ -2,7 +2,7 @@
 <module>
 	<name>channelengine</name>
 	<displayName><![CDATA[ChannelEngine]]></displayName>
-	<version><![CDATA[2.2.4]]></version>
+	<version><![CDATA[2.2.5]]></version>
 	<description><![CDATA[ChannelEngine extension for Prestashop]]></description>
 	<author><![CDATA[ChannelEngine]]></author>
 	<tab><![CDATA[market_place]]></tab>

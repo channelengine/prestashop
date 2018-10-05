@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.4';
+        $this->version = '2.2.5';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -967,13 +967,13 @@ ce('track:click');
         $ed[] = $this->createExtraDataItem('Weight', $prestaProduct['weight']);
         $ed[] = $this->createExtraDataItem('Reference', $prestaProduct['reference']);
 
+        $imageLookupId = $id;
         if (!$variant) {
             $merchantProductNo = $id;
             $product->setStock($prestaProduct['quantity']);
             $product->setPurchasePrice(round($prestaProduct['wholesale_price'], 2));
             $product->setEan($this->extractGtin($prestaProduct));
             $minQty->setValue($prestaProduct['minimal_quantity']);
-            $imageLookupId = $id;
         } else {
             $merchantProductNo = $id . "-" . $variant['id_product_attribute'];
             $product->setParentMerchantProductNo($id);
@@ -985,8 +985,10 @@ ce('track:click');
             }
             $product->setEan($this->extractGtin($variant));
             $minQty->setValue($variant['minimal_quantity']);
-            $imageLookupId = $variant['id_product_attribute'];
 
+            if(!empty($variant['id_product_attribute']) && isset($images[$variant['id_product_attribute']])) {
+                $imageLookupId = $variant['id_product_attribute'];
+            }
 
             //add variant specific image
             if (isset($variant['id_image']) && $variant['id_image']) {
