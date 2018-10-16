@@ -934,7 +934,7 @@ ce('track:click');
         $id = $prestaProduct['id_product'];
         $product = new \ChannelEngine\Merchant\ApiClient\Model\MerchantProductRequest();
         $product->setName($prestaProduct['name']);
-        $product->setDescription(strip_tags($prestaProduct['description']));
+        $product->setDescription(strip_tags($prestaProduct['description'], "<div><span><pre><p><br><hr><hgroup><h1><h2><h3><h4><h5><h6><ul><ol><li><dl><dt><dd><strong><em><b><i><u><img><a><abbr><address><blockquote><area><audio><video><caption><table><tbody><td><tfoot><th><thead><tr>"));
         // Add short descriptions to the product feed
         $product['shortDescription'] = strip_tags($prestaProduct['description_short']);
         $product->setBrand($prestaProduct['manufacturer_name']);
