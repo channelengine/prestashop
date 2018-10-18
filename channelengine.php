@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.5';
+        $this->version = '2.2.6';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -56,7 +56,7 @@ class Channelengine extends Module {
 
     /**
      * Due to conflict with httpguzzle in prestashop 1.7 (ps uses older version). Only load when needed.
-      */
+     */
     private function loadVendorFiles()
     {
         require_once( dirname(__FILE__) . "/vendor/autoload.php");
@@ -1334,7 +1334,7 @@ ce('track:click');
                         $cart->id_address_delivery = $shippingAddress->id;
                         $cart->id_address_invoice = $billingAddress->id;
                         $cart->recyclable = 0;
-                        $cart->gift	= 0;
+                        $cart->gift = 0;
                         $cart->secure_key = $customer->secure_key;
 
                         $cart->id_guest = 0 ;
@@ -1482,7 +1482,7 @@ ce('track:click');
                     } elseif ($new_os->delivery && !$order->delivery_number) {
                         $order_object->setDeliverySlip();
                     }
-                    
+
                     //trigger hook (normally triggered in: public function changeIdOrderState)
                     Hook::exec('actionOrderStatusUpdate', array('newOrderStatus' => $new_os, 'id_order' => (int)$order_object->id), null, false, true, false, $order_object->id_shop);
                 }
@@ -1707,7 +1707,7 @@ ce('track:click');
                     if ($order->shipping_number) {
                         $shipment->setTrackTraceNo($order->shipping_number);
                     }
-                    
+
                     if ($channelengine_shipment_id == 0) { //always true !
                         $result = $shipmentApi->shipmentCreateWithHttpInfo($shipment);
                         if ($result[0] instanceof ChannelEngine\Merchant\ApiClient\Model\ApiResponse &&  $result[0]->getSuccess()) {
@@ -1895,7 +1895,7 @@ ce('track:click');
 
         $product_quantity = (int)Product::getQuantity($orderDetail->product_id, $orderDetail->product_attribute_id);
         $orderDetail->product_quantity_in_stock = ($product_quantity - (int)$product['cart_quantity'] < 0) ?
-                    $product_quantity : (int)$product['cart_quantity'];
+            $product_quantity : (int)$product['cart_quantity'];
 
         //Do not get tax from product. Can be different from calculated tax
         //Calculate tax. Round to nearest half 20.9->21 20.3->20.5
@@ -1904,7 +1904,7 @@ ce('track:click');
         $tax_rate = round(( $unitVat * 100 / $unitExclVat) * 2) / 2;
 
         $orderDetail->tax_rate = $tax_rate;
-        
+
         $orderDetail->unit_price_tax_incl = (float)$item->{'get'.$funcOriginal.'UnitPriceInclVat'}();
         //recalc price excl tax to get enough digit because data in $item is only 2 digits
         $orderDetail->unit_price_tax_excl = Tools::ps_round($orderDetail->unit_price_tax_incl / (1 + ($tax_rate/100)), _PS_PRICE_COMPUTE_PRECISION_);
@@ -1962,13 +1962,25 @@ ce('track:click');
             if (!Validate::isLoadedObject($product)) throw new Exception('No product exists with ID ' . $orderLine->getMerchantProductNo());
 
             $productName = $product->name;
+            $attributeReference = '';
             if (isset($productIdParts[1])) {
                 $productAttributeId = $productIdParts[1];
                 $attributes = Product::getAttributesParams($productId, $productAttributeId);
+
                 $nameprefix = ' - ';
                 foreach ($attributes as $attribute) {
                     $productName .= $nameprefix . $attribute['group'].': '.$attribute['name'];
                     $nameprefix = ', ';
+                }
+
+                //note: Product::getAttributesParams($productId, $productAttributeId); bevat bijna zelfde data als getAttributeCombinationsById.
+                //getAttributesParams haalt specifiekere data op uit attribute (url, meta) als je deze vult.
+                //als dit niet nodig is, dan kan opbouw van productName ook met de data van getAttributeCombinationsById zoals hieronder.
+                $attributeCombinations = $product->getAttributeCombinationsById($productAttributeId, $langId);
+                foreach ($attributeCombinations as $attributeCombinations) {
+                    if (isset($attributeCombinations['reference']) && $attributeCombinations['reference'] ) {
+                        $attributeReference = $attributeCombinations['reference'];
+                    }
                 }
             }
 
@@ -1976,7 +1988,7 @@ ce('track:click');
                 'name' => $productName,
                 'id' => $productId,
                 'attribute_id' => $productAttributeId,
-                'reference' => $product->reference,
+                'reference' => $attributeReference ? $attributeReference : $product->reference,
                 'advanced_stock_management' => $product->advanced_stock_management,
                 'original_price' => $product->price,
             );
@@ -2004,14 +2016,14 @@ ce('track:click');
      */
 
     protected function checkProductStock($product, $id_order_state)
-        {
-            if ($id_order_state != Configuration::get('PS_OS_CANCELED') && $id_order_state != Configuration::get('PS_OS_ERROR')) {
-                $update_quantity = true;
-                if (!StockAvailable::dependsOnStock($product['id'])) {
-                    $update_quantity = StockAvailable::updateQuantity($product['id'], $product['attribute_id'], -(int)$product['cart_quantity']);
-                }
+    {
+        if ($id_order_state != Configuration::get('PS_OS_CANCELED') && $id_order_state != Configuration::get('PS_OS_ERROR')) {
+            $update_quantity = true;
+            if (!StockAvailable::dependsOnStock($product['id'])) {
+                $update_quantity = StockAvailable::updateQuantity($product['id'], $product['attribute_id'], -(int)$product['cart_quantity']);
+            }
 
-                //stock_quantity is unknown at this moment.
+            //stock_quantity is unknown at this moment.
 //                if ($update_quantity) {
 //                    $product['stock_quantity'] -= $product['cart_quantity'];
 //                }
@@ -2020,7 +2032,7 @@ ce('track:click');
 //                    $this->outOfStock = true;
 //                }
 //                Product::updateDefaultAttribute($product['id_product']);
-                Product::updateDefaultAttribute($product['id']);
-            }
+            Product::updateDefaultAttribute($product['id']);
         }
+    }
 }
