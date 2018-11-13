@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.6';
+        $this->version = '2.2.7';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -1383,7 +1383,7 @@ ce('track:click');
                     $order_object = new Order();
                     $order_object->id_address_delivery = $shippingAddress->id;
                     $order_object->id_address_invoice = $billingAddress->id;
-                    $order_object->reference = 'ce-' . $channelOrderId;
+                    $order_object->reference = 'ce-'. Configuration::get('CHANNELENGINE_ACCOUNT_NAME') . '-' . $channelOrderId;
                     $order_object->id_cart = $id_cart;
                     $order_object->id_currency = $id_currency;
                     $order_object->id_customer = $id_customer;
