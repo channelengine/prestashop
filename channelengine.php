@@ -1279,12 +1279,12 @@ ce('track:click');
         foreach ($orders as $order) {
 
             try {
-                $orderReference = 'ce-' . mysqli_real_escape_string(Configuration::get('CHANNELENGINE_ACCOUNT_NAME')) . '-' . $order->getId();
+                $orderReference = 'CE-' . strtoupper(Tools::passwdGen(6, 'NO_NUMERIC'));
                 $channelPaymentMethod = 'ChannelEngine Payment'; //$order->getPaymentMethod(); not always set
 
-                // Check if an order with this reference already exists
+                // Check if an order with this CE ID anc Channel Order ID already exists
                 $orderExists = false;
-                $sql = 'SELECT * FROM '. _DB_PREFIX_ . 'orders WHERE reference = ' . $orderReference;
+                $sql = 'SELECT * FROM '. _DB_PREFIX_ . "orders WHERE id_channelengine_order = '".pSQL($order->getId())."' AND channelengine_channel_order_no = '".pSQL($order->getChannelOrderNo())."'";
                 $result = Db::getInstance('_PS_USE_SQL_SLAVE_')->getRow($sql);
 
                 if ($result) {
@@ -1303,7 +1303,7 @@ ce('track:click');
                             $currencyCode = 'EUR';
                             $funcOriginal = '';
                         } else {
-                            $this->logMessage('Error: currency does not exist in Prestashop: '.$currencyCode. ' for order: ' . $orderReference);
+                            $this->logMessage('Error: currency does not exist in Prestashop: '.$currencyCode. ' for order: #' . $order->getId());
                             continue; //next order
                         }
                     }
@@ -1313,7 +1313,7 @@ ce('track:click');
                     $id_currency = Currency::getIdByIsoCode($currencyCode); //check if exists?
                     $customer = $this->createPrestaShopCustomer($order->getBillingAddress(), $order->getEmail());
                     if (!Validate::isLoadedObject($customer)) {
-                        $this->logMessage('cronOrdersSync - Error create customer for order: ' . $orderReference);
+                        $this->logMessage('cronOrdersSync - Error create customer for order: #' . $order->getId());
                         continue;
                     }
 
@@ -1427,7 +1427,7 @@ ce('track:click');
                     $order_object->add();
 
                     if (!Validate::isLoadedObject($order_object)) {
-                        $this->logMessage('cronOrdersSync - Error create order for order: '.$orderReference);
+                        $this->logMessage('cronOrdersSync - Error create order for order: #' . $order->getId());
                         continue;
                     }
 
@@ -1438,7 +1438,7 @@ ce('track:click');
                         'channelengine_channel_name' => $order->getChannelName()
                     ), 'id_order = ' . $order_object->id);
 
-                    $message = "ChannelEngine Order: " . $orderReference . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
+                    $message = "ChannelEngine Order: #" . $order->getId() . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
 
                     Db::getInstance()->execute("INSERT INTO " . _DB_PREFIX_ . "message (`id_cart`, `id_customer`, `id_employee`, `id_order`, `message`, `private`, `date_add`) VALUES (0, 0, 0, $order_object->id, '$message', 1, NOW())");
 
