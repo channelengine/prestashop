@@ -36,7 +36,7 @@ class Channelengine extends Module {
     public function __construct() {
         $this->name = 'channelengine';
         $this->tab = 'market_place';
-        $this->version = '2.2.7';
+        $this->version = '2.2.8';
         $this->author = 'ChannelEngine';
         $this->need_instance = 1;
 
@@ -66,8 +66,31 @@ class Channelengine extends Module {
         if (!$this->apiConfig) {
             $this->apiConfig = \ChannelEngine\Merchant\ApiClient\Configuration::getDefaultConfiguration();
             $this->apiConfig->setHost('https://'.Configuration::get('CHANNELENGINE_ACCOUNT_NAME').'.channelengine.net/api');
-            $this->apiConfig->setApiKey('apikey', Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY', null));
+
+            //check for tenant. If set get api from multiconfig.
+            $channelTenant = pSQL(Tools::getValue('tenant')) ? pSQL(Tools::getValue('tenant')) : '';
+            if ($channelTenant !== '') {
+                //get apikey from multiconfig
+                $accounts = explode( PHP_EOL, Configuration::get('CHANNELENGINE_ACCOUNTS', null));
+                foreach ($accounts as $account) {
+                    $accountData = explode('|', $account);
+                    if ($accountData[0] == $channelTenant) {
+                        $apiKey = $accountData[1];
+                        break;
+                    }
+                }
+
+                if (!$apiKey) {
+                    $this->logMessage('Unable to find api key in module config for tenant: ' . $channelTenant);
+                    return false;
+                }
+                $this->apiConfig->setApiKey('apikey', $apiKey);
+            } else {
+                $this->logMessage('Tenant info missing in url of the cron call.');
+                return false;
+            }
         }
+        return true;
     }
 
     /**
@@ -109,9 +132,10 @@ class Channelengine extends Module {
                 return false;
             }
             Configuration::deleteByName('CHANNELENGINE_ACCOUNT_API_SECRET'); //deprecated in v2.0
+            Configuration::deleteByName('CHANNELENGINE_ACCOUNT_API_KEY'); //deprecated in v2.2.8
+            Configuration::deleteByName('CHANNELENGINE_ACCOUNT_NAME'); //deprecated in v2.2.8
             Configuration::deleteByName('CHANNELENGINE_LIVE_MODE');
-            Configuration::deleteByName('CHANNELENGINE_ACCOUNT_API_KEY');
-            Configuration::deleteByName('CHANNELENGINE_ACCOUNT_NAME');
+            Configuration::deleteByName('CHANNELENGINE_ACCOUNTS');
             Configuration::deleteByName('CHANNELENGINE_EXPECTED_SHIPPING_PERIOD');
             Configuration::deleteByName('CHANNELENGINE_CARRIER_AUTO');
             Configuration::deleteByName('CHANNELENGINE_CARRIER');
@@ -274,17 +298,14 @@ class Channelengine extends Module {
             array(
                 'col' => 6,
                 'required' => true,
-                'type' => 'text',
-                'name' => 'CHANNELENGINE_ACCOUNT_API_KEY',
-                'label' => $this->l('Api Key'),
+                'type' => 'textarea',
+                'name' => 'CHANNELENGINE_ACCOUNTS',
+                'label' => $this->l('Account(s) Config'),
+                'rows' => 5,
+                'cols' => 30,
+                'desc' => $this->l('One api config per line. Format the line as: TenantName|Apikey'),
             ),
-            array(
-                'col' => 6,
-                'required' => true,
-                'type' => 'text',
-                'name' => 'CHANNELENGINE_ACCOUNT_NAME',
-                'label' => $this->l('Account Name'),
-            ),
+
             array(
                 'col' => 3,
                 'type' => 'text',
@@ -369,8 +390,7 @@ class Channelengine extends Module {
 
         return array(
             'CHANNELENGINE_LIVE_MODE' => Configuration::get('CHANNELENGINE_LIVE_MODE', null),
-            'CHANNELENGINE_ACCOUNT_API_KEY' => Configuration::get('CHANNELENGINE_ACCOUNT_API_KEY'),
-            'CHANNELENGINE_ACCOUNT_NAME' => Configuration::get('CHANNELENGINE_ACCOUNT_NAME', null),
+            'CHANNELENGINE_ACCOUNTS' => Configuration::get('CHANNELENGINE_ACCOUNTS', null),
             'CHANNELENGINE_EXPECTED_SHIPPING_PERIOD' => Configuration::get('CHANNELENGINE_EXPECTED_SHIPPING_PERIOD', null),
             'CHANNELENGINE_CARRIER_AUTO' => Configuration::get('CHANNELENGINE_CARRIER_AUTO', null),
             'CHANNELENGINE_CARRIER' => Configuration::get('CHANNELENGINE_CARRIER', null),
@@ -424,7 +444,9 @@ ce('track:click');
     public function cronReturnSync() {
         $this->loadVendorFiles();
 
-        $this->getApiConfig();
+        if (!$this->getApiConfig()) {
+            return false;
+        }
         //Retrieve returns
         $returnApi = new \ChannelEngine\Merchant\ApiClient\Api\ReturnApi(null, $this->apiConfig);
 
@@ -842,7 +864,9 @@ ce('track:click');
     public function pushProductsToChannelEngine($products) {
 
         try {
-            $this->getApiConfig();
+            if (!$this->getApiConfig()) {
+                return false;
+            }
             $productApi = new \ChannelEngine\Merchant\ApiClient\Api\ProductApi(null, $this->apiConfig);
             $results = $productApi->productCreate($products);
             $this->pr($results);
@@ -884,7 +908,9 @@ ce('track:click');
     public function pushOffersToChannelEngine($updates) {
 
         try {
-            $this->getApiConfig();
+            if (!$this->getApiConfig()) {
+                return false;
+            }
             $offerApi = new \ChannelEngine\Merchant\ApiClient\Api\OfferApi(null, $this->apiConfig);
             $results = $offerApi->offerStockPriceUpdate($updates);
             $this->pr($results);
@@ -1261,8 +1287,11 @@ ce('track:click');
 
         $orders = [];
         $funcOriginal = 'Original'; //use values from original currency. Set to false to get converted to EUR currency.
-        $this->getApiConfig();
+        if (!$this->getApiConfig()) {
+            return false;
+        }
         $orderApi = new \ChannelEngine\Merchant\ApiClient\Api\OrderApi(null, $this->apiConfig);
+        $channelTenant = pSQL(Tools::getValue('tenant')) ? pSQL(Tools::getValue('tenant')) : '';
 
         try {
             $orders = $orderApi->orderGetNew()->getContent();
@@ -1279,12 +1308,18 @@ ce('track:click');
         foreach ($orders as $order) {
 
             try {
-                $orderReference = 'CE-' . strtoupper(Tools::passwdGen(6, 'NO_NUMERIC'));
+                do {
+                    $orderReference = Order::generateReference();
+                } while (Order::getByReference($orderReference)->count());
+
                 $channelPaymentMethod = 'ChannelEngine Payment'; //$order->getPaymentMethod(); not always set
 
-                // Check if an order with this CE ID anc Channel Order ID already exists
+                // Check if an order with this CE ID anc Channel Order ID & tenant already exists
                 $orderExists = false;
-                $sql = 'SELECT * FROM '. _DB_PREFIX_ . "orders WHERE id_channelengine_order = '".pSQL($order->getId())."' AND channelengine_channel_order_no = '".pSQL($order->getChannelOrderNo())."'";
+                $sql = "SELECT * FROM ". _DB_PREFIX_ . "orders WHERE id_channelengine_order = '".pSQL($order->getId())
+                    ."' AND channelengine_channel_order_no = '".pSQL($order->getChannelOrderNo())
+                    ."' AND channelengine_channel_tenant = '". $channelTenant
+                    ."'";
                 $result = Db::getInstance('_PS_USE_SQL_SLAVE_')->getRow($sql);
 
                 if ($result) {
@@ -1435,7 +1470,8 @@ ce('track:click');
                     Db::getInstance()->update('orders', array(
                         'id_channelengine_order' => $order->getId(),
                         'channelengine_channel_order_no' => $order->getChannelOrderNo(),
-                        'channelengine_channel_name' => $order->getChannelName()
+                        'channelengine_channel_name' => $order->getChannelName(),
+                        'channelengine_channel_tenant' => $channelTenant
                     ), 'id_order = ' . $order_object->id);
 
                     $message = "ChannelEngine Order: #" . $order->getId() . "\nChannel Name: " . $order->getChannelName() . "\nChannel Order No: " . $order->getChannelOrderNo();
@@ -1666,7 +1702,9 @@ ce('track:click');
 
     protected function putPrestaOrderShipmentToChannelEngine($orders)
     {
-        $this->getApiConfig();
+        if (!$this->getApiConfig()) {
+            return false;
+        }
         $shipmentApi = new \ChannelEngine\Merchant\ApiClient\Api\ShipmentApi(null, $this->apiConfig);
 
         foreach($orders as $order) {
@@ -1756,7 +1794,9 @@ ce('track:click');
     protected function putPrestaCreditsToChannelEngine($order_slip_ids)
     {
 
-        $this->getApiConfig();
+        if (!$this->getApiConfig()) {
+            return false;
+        }
         $returnApi = new \ChannelEngine\Merchant\ApiClient\Api\ReturnApi(null, $this->apiConfig);
 
         foreach($order_slip_ids as $order_slip_id) {

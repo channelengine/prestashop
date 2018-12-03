@@ -12,6 +12,8 @@ $_MODULE['<{channelengine}prestashop>channelengine_00d23a76e43b46dae9ec7aa9dcbeb
 $_MODULE['<{channelengine}prestashop>channelengine_b9f5c797ebbf55adccdd8539a65a0241'] = 'Uit';
 $_MODULE['<{channelengine}prestashop>channelengine_2e5e61c17add3609c6786a4c9ce1a279'] = 'Api sleutel';
 $_MODULE['<{channelengine}prestashop>channelengine_5d55785a871474b5490ecc8da433a32d'] = 'Account naam';
+$_MODULE['<{channelengine}prestashop>channelengine_7892122da9c7b275ddf7d029ec8668b4'] = 'Account instelling(en)';
+$_MODULE['<{channelengine}prestashop>channelengine_aa2e2ce11ce9e7a11d9c2307fc7cb6cb'] = 'Één api instelling per regel. Opmaak van de regel: Tenantnaam|Apikey';
 $_MODULE['<{channelengine}prestashop>channelengine_5f3b81977d1f78862e694fef05ea59c0'] = 'Verwachte verzendtijd voor back orders';
 $_MODULE['<{channelengine}prestashop>channelengine_a9f914331be036b0921c1bb430cc62c8'] = 'Auto selecteer vervoerder';
 $_MODULE['<{channelengine}prestashop>channelengine_3c71e3774b4c49dda46af2da42b10fb9'] = 'Automatisch de vervoerder met de beste prijs bepalen.';
