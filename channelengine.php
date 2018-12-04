@@ -65,13 +65,12 @@ class Channelengine extends Module {
     protected function getApiConfig() {
         if (!$this->apiConfig) {
             $this->apiConfig = \ChannelEngine\Merchant\ApiClient\Configuration::getDefaultConfiguration();
-            $this->apiConfig->setHost('https://'.Configuration::get('CHANNELENGINE_ACCOUNT_NAME').'.channelengine.net/api');
 
             //check for tenant. If set get api from multiconfig.
             $channelTenant = pSQL(Tools::getValue('tenant')) ? pSQL(Tools::getValue('tenant')) : '';
             if ($channelTenant !== '') {
                 //get apikey from multiconfig
-                $accounts = explode( PHP_EOL, Configuration::get('CHANNELENGINE_ACCOUNTS', null));
+                $accounts = preg_split('/\r\n|\n|\r/', Configuration::get('CHANNELENGINE_ACCOUNTS', null));
                 foreach ($accounts as $account) {
                     $accountData = explode('|', $account);
                     if ($accountData[0] == $channelTenant) {
@@ -84,7 +83,10 @@ class Channelengine extends Module {
                     $this->logMessage('Unable to find api key in module config for tenant: ' . $channelTenant);
                     return false;
                 }
+
                 $this->apiConfig->setApiKey('apikey', $apiKey);
+                $this->apiConfig->setHost('https://'.$channelTenant.'.channelengine.net/api');
+
             } else {
                 $this->logMessage('Tenant info missing in url of the cron call.');
                 return false;
@@ -1686,7 +1688,8 @@ ce('track:click');
     protected function getShippedOrders() {
         $orders = array();
 
-        $query = 'SELECT id_order FROM ' . _DB_PREFIX_ . 'orders WHERE id_channelengine_order > 0 AND id_channelengine_shipment = 0';
+        $channelTenant = pSQL(Tools::getValue('tenant')) ? pSQL(Tools::getValue('tenant')) : '';
+        $query = "SELECT id_order FROM " . _DB_PREFIX_ . "orders WHERE id_channelengine_order > 0 AND id_channelengine_shipment = 0 AND channelengine_channel_tenant = '" . $channelTenant . "'";
 
         $result = Db::getInstance('_PS_USE_SQL_SLAVE_')->executeS($query);
         foreach($result as $result) {
